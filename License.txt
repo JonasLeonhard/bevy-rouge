@@ -1,0 +1,4 @@
+Copyright (C) Jonas Leonhard - All Rights Reserved
+Unauthorized copying of this file, via any medium is strictly prohibited
+Proprietary and confidential
+Written by Jonas Leonhard <jonasleonhardfl@gmail.com>, Jan 2025
