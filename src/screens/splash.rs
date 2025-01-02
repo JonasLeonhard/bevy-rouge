@@ -6,7 +6,7 @@ use bevy::{
     render::texture::{ImageLoaderSettings, ImageSampler},
 };
 
-use crate::{screens::Screen, theme::prelude::*, AppSet};
+use crate::{audio::SoundEffect, screens::Screen, theme::prelude::*, AppSet};
 
 pub(super) fn plugin(app: &mut App) {
     // Spawn splash screen.
@@ -62,7 +62,7 @@ fn spawn_splash_screen(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ImageBundle {
                     style: Style {
                         margin: UiRect::all(Val::Auto),
-                        width: Val::Percent(70.0),
+                        width: Val::Px(140.0),
                         ..default()
                     },
                     image: UiImage::new(asset_server.load_with_settings(
@@ -84,6 +84,14 @@ fn spawn_splash_screen(mut commands: Commands, asset_server: Res<AssetServer>) {
                 },
             ));
         });
+
+    commands.spawn((
+        AudioBundle {
+            source: asset_server.load("audio/sound_effects/splash.ogg"),
+            settings: PlaybackSettings::DESPAWN,
+        },
+        SoundEffect,
+    ));
 }
 
 #[derive(Component, Reflect)]
