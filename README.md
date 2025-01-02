@@ -37,6 +37,9 @@ After you've fiddled with it, rename it to `.cargo/config.toml` to enable it.
 
 The Game uses [GitHub workflows](https://docs.github.com/en/actions/using-workflows) to run tests and build releases.
 
+## Development
+To Activate Developer Tools see dev_tools.rs.
+
 ## Known Issues
 
 - You can increase the compilation speed by copying .cargo/config_fast_builds to .cargo/config and adjust it. This requires you to install some additional dependencies to your system.

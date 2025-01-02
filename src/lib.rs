@@ -16,7 +16,7 @@ pub struct AppPlugin;
 
 impl Plugin for AppPlugin {
     fn build(&self, app: &mut App) {
-        // Order new `AppStep` variants by adding them here:
+        // Order new `AppSet` variants by adding them here:
         app.configure_sets(
             Update,
             (AppSet::TickTimers, AppSet::RecordInput, AppSet::Update).chain(),
