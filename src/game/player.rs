@@ -10,7 +10,7 @@ use bevy::{
 
 use crate::{
     asset_tracking::LoadResource,
-    demo::{
+    game::{
         animation::PlayerAnimation,
         movement::{MovementController, ScreenWrap},
     },

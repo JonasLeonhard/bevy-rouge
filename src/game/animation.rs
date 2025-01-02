@@ -10,7 +10,7 @@ use std::time::Duration;
 
 use crate::{
     audio::SoundEffect,
-    demo::{movement::MovementController, player::PlayerAssets},
+    game::{movement::MovementController, player::PlayerAssets},
     AppSet,
 };
 

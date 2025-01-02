@@ -3,7 +3,7 @@
 use bevy::prelude::*;
 
 use crate::{
-    demo::player::PlayerAssets,
+    game::player::PlayerAssets,
     screens::{credits::CreditsMusic, gameplay::GameplayMusic, Screen},
     theme::{interaction::InteractionAssets, prelude::*},
 };
