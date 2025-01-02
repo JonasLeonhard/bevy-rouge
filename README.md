@@ -29,13 +29,13 @@ Wayland is activated by using the `bevy/wayland` feature in the [`Cargo.toml`](.
     <summary>(Optional) Improve your compile times</summary>
 
 [`.cargo/config_fast_builds.toml`](./.cargo/config_fast_builds.toml) contains documentation on how to set up your environment to improve compile times.
-After you've fiddled with it, rename it to `.cargo/config.toml` to enable it.
+copy it to `.cargo/config.toml` to enable it for you, then adjust it (its gitignored).
 
 </details>
 
 ## Releases
 
-The Game uses [GitHub workflows](https://docs.github.com/en/actions/using-workflows) to run tests and build releases.
+The Game uses [GitHub workflows](https://docs.github.com/en/actions/using-workflows) to run tests and build releases. It requires setting a git tag with semantic versioning in order for the pipeline to run.
 
 ## Development
 To Activate Developer Tools see dev_tools.rs.
