@@ -1,20 +1,12 @@
-//! Spawn the main level.
+use bevy::prelude::*;
 
-use bevy::{ecs::world::Command, prelude::*};
-
-use crate::game::player::SpawnPlayer;
-
-pub(super) fn plugin(_app: &mut App) {
-    // No setup required for this plugin.
-    // It's still good to have a function here so that we can add some setup
-    // later if needed.
+pub(super) fn plugin(app: &mut App) {
+    app.add_systems(Startup, spawn_level);
 }
 
-/// A [`Command`] to spawn the level.
-/// Functions that accept only `&mut World` as their parameter implement [`Command`].
-/// We use this style when a command requires no configuration.
-pub fn spawn_level(world: &mut World) {
+pub fn spawn_level(mut commands: Commands, asset_server: Res<AssetServer>) {
     // The only thing we have in our level is a player,
     // but add things like walls etc. here.
-    SpawnPlayer { max_speed: 400.0 }.apply(world);
+    // TODO:
+    commands.spawn(Sprite::from_image(asset_server.load("images/ducky.png")));
 }
