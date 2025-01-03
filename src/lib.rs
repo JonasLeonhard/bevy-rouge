@@ -12,9 +12,6 @@ pub struct AppPlugin;
 
 impl Plugin for AppPlugin {
     fn build(&self, app: &mut App) {
-        // Spawn the main camera.
-        app.add_systems(Startup, spawn_camera);
-
         // Add Bevy plugins.
         app.add_plugins(
             DefaultPlugins
@@ -42,16 +39,4 @@ impl Plugin for AppPlugin {
         #[cfg(feature = "dev")]
         app.add_plugins(dev_tools::plugin);
     }
-}
-
-fn spawn_camera(mut commands: Commands) {
-    commands.spawn((
-        Name::new("Camera"),
-        Camera2d,
-        // Render all UI to this camera.
-        // Not strictly necessary since we only use one camera,
-        // but if we don't use this component, our UI will disappear as soon
-        // as we add another camera. So it's good to have this here for future-proofing.
-        IsDefaultUiCamera,
-    ));
 }
