@@ -156,7 +156,7 @@ fn highlight_hovered_tile(
                 commands.spawn((
                     Sprite {
                         color: outline_color,
-                        custom_size: Some(Vec2::new(grid_size.x as f32, outline_thickness)),
+                        custom_size: Some(Vec2::new(grid_size.x, outline_thickness)),
                         ..default()
                     },
                     Transform::from_xyz(
@@ -171,7 +171,7 @@ fn highlight_hovered_tile(
                 commands.spawn((
                     Sprite {
                         color: outline_color,
-                        custom_size: Some(Vec2::new(grid_size.x as f32, outline_thickness)),
+                        custom_size: Some(Vec2::new(grid_size.x, outline_thickness)),
                         ..default()
                     },
                     Transform::from_xyz(
@@ -186,7 +186,7 @@ fn highlight_hovered_tile(
                 commands.spawn((
                     Sprite {
                         color: outline_color,
-                        custom_size: Some(Vec2::new(outline_thickness, grid_size.y as f32)),
+                        custom_size: Some(Vec2::new(outline_thickness, grid_size.y)),
                         ..default()
                     },
                     Transform::from_xyz(
@@ -201,7 +201,7 @@ fn highlight_hovered_tile(
                 commands.spawn((
                     Sprite {
                         color: outline_color,
-                        custom_size: Some(Vec2::new(outline_thickness, grid_size.y as f32)),
+                        custom_size: Some(Vec2::new(outline_thickness, grid_size.y)),
                         ..default()
                     },
                     Transform::from_xyz(
