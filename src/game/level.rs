@@ -142,77 +142,81 @@ fn highlight_hovered_tile(
             cursor_in_map_pos.xy()
         };
 
-        if let Some(tile_pos) =
+        let Some(tile_pos) =
             TilePos::from_world_pos(&cursor_in_map_pos, map_size, grid_size, map_type)
-        {
-            if let Some(_tile_entity) = tile_storage.get(&tile_pos) {
-                let outline_thickness = 2.0;
-                let outline_color = Color::srgb(255.0, 0.0, 0.0);
-                let tile_center = tile_pos.center_in_world(grid_size, map_type).extend(1.0);
-                let transform = *map_transform * Transform::from_translation(tile_center);
+        else {
+            continue;
+        };
 
-                // Spawn all four borders
-                // Top border
-                commands.spawn((
-                    Sprite {
-                        color: outline_color,
-                        custom_size: Some(Vec2::new(grid_size.x, outline_thickness)),
-                        ..default()
-                    },
-                    Transform::from_xyz(
-                        transform.translation.x,
-                        transform.translation.y + (grid_size.y / 2.0),
-                        transform.translation.z + 1.0,
-                    ),
-                    HighlightBorder,
-                ));
+        let Some(_tile_entity) = tile_storage.get(&tile_pos) else {
+            continue;
+        };
 
-                // Bottom border
-                commands.spawn((
-                    Sprite {
-                        color: outline_color,
-                        custom_size: Some(Vec2::new(grid_size.x, outline_thickness)),
-                        ..default()
-                    },
-                    Transform::from_xyz(
-                        transform.translation.x,
-                        transform.translation.y - (grid_size.y / 2.0),
-                        transform.translation.z + 1.0,
-                    ),
-                    HighlightBorder,
-                ));
+        let outline_thickness = 2.0;
+        let outline_color = Color::srgb(255.0, 0.0, 0.0);
+        let tile_center = tile_pos.center_in_world(grid_size, map_type).extend(1.0);
+        let transform = *map_transform * Transform::from_translation(tile_center);
 
-                // Left border
-                commands.spawn((
-                    Sprite {
-                        color: outline_color,
-                        custom_size: Some(Vec2::new(outline_thickness, grid_size.y)),
-                        ..default()
-                    },
-                    Transform::from_xyz(
-                        transform.translation.x - (grid_size.x / 2.0),
-                        transform.translation.y,
-                        transform.translation.z + 1.0,
-                    ),
-                    HighlightBorder,
-                ));
+        // Spawn all four borders
+        // Top border
+        commands.spawn((
+            Sprite {
+                color: outline_color,
+                custom_size: Some(Vec2::new(grid_size.x, outline_thickness)),
+                ..default()
+            },
+            Transform::from_xyz(
+                transform.translation.x,
+                transform.translation.y + (grid_size.y / 2.0),
+                transform.translation.z + 1.0,
+            ),
+            HighlightBorder,
+        ));
 
-                // Right border
-                commands.spawn((
-                    Sprite {
-                        color: outline_color,
-                        custom_size: Some(Vec2::new(outline_thickness, grid_size.y)),
-                        ..default()
-                    },
-                    Transform::from_xyz(
-                        transform.translation.x + (grid_size.x / 2.0),
-                        transform.translation.y,
-                        transform.translation.z + 1.0,
-                    ),
-                    HighlightBorder,
-                ));
-            }
-        }
+        // Bottom border
+        commands.spawn((
+            Sprite {
+                color: outline_color,
+                custom_size: Some(Vec2::new(grid_size.x, outline_thickness)),
+                ..default()
+            },
+            Transform::from_xyz(
+                transform.translation.x,
+                transform.translation.y - (grid_size.y / 2.0),
+                transform.translation.z + 1.0,
+            ),
+            HighlightBorder,
+        ));
+
+        // Left border
+        commands.spawn((
+            Sprite {
+                color: outline_color,
+                custom_size: Some(Vec2::new(outline_thickness, grid_size.y)),
+                ..default()
+            },
+            Transform::from_xyz(
+                transform.translation.x - (grid_size.x / 2.0),
+                transform.translation.y,
+                transform.translation.z + 1.0,
+            ),
+            HighlightBorder,
+        ));
+
+        // Right border
+        commands.spawn((
+            Sprite {
+                color: outline_color,
+                custom_size: Some(Vec2::new(outline_thickness, grid_size.y)),
+                ..default()
+            },
+            Transform::from_xyz(
+                transform.translation.x + (grid_size.x / 2.0),
+                transform.translation.y,
+                transform.translation.z + 1.0,
+            ),
+            HighlightBorder,
+        ));
     }
 }
 
