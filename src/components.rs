@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use bevy::prelude::*;
 
 #[derive(Component)]
@@ -28,3 +30,34 @@ pub struct TilePosition(pub IVec2);
 /// might be a Wall, or a Player, a Forcefield or an Enemy etc.
 #[derive(Component)]
 pub struct TilePositionOccupied;
+
+#[derive(Component)]
+pub struct AnimationConfig {
+    pub first_sprite_index: usize,
+    pub last_sprite_index: usize,
+    pub fps: u8,
+    pub frame_timer: Timer,
+    pub should_loop: bool,
+}
+
+impl AnimationConfig {
+    pub fn new(first: usize, last: usize, fps: u8, should_loop: bool) -> Self {
+        Self {
+            first_sprite_index: first,
+            last_sprite_index: last,
+            fps,
+            frame_timer: Self::timer_from_fps(fps, should_loop),
+            should_loop,
+        }
+    }
+
+    pub fn timer_from_fps(fps: u8, should_loop: bool) -> Timer {
+        let duration = Duration::from_secs_f32(1.0 / (fps as f32));
+        let mode = if should_loop {
+            TimerMode::Repeating
+        } else {
+            TimerMode::Once
+        };
+        Timer::new(duration, mode)
+    }
+}

@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 use crate::states::TurnState;
 
+mod animation;
 mod camera;
 mod map;
 pub mod player;
@@ -11,5 +12,6 @@ pub(super) fn plugin(app: &mut App) {
         map::plugin,
         player::plugin,
         camera::plugin,
+        animation::plugin,
     ));
 }
