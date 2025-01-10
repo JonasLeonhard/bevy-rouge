@@ -1,6 +1,6 @@
 use crate::{
     components::{Player, TilePosition, TilePositionOccupied, TurnTaker},
-    resources::TurnState,
+    states::TurnState,
 };
 use bevy::prelude::*;
 

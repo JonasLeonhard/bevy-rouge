@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::resources::TurnState;
+use crate::states::TurnState;
 
 mod camera;
 mod map;

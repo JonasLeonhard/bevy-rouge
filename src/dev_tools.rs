@@ -9,11 +9,12 @@ use bevy::{
 };
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
-use crate::screens::Screen;
+use crate::states::{Screen, TurnState};
 
 pub(super) fn plugin(app: &mut App) {
     // Log `Screen` state transitions.
     app.add_systems(Update, log_transitions::<Screen>);
+    app.add_systems(Update, log_transitions::<TurnState>);
 
     // bevy_inspector_egui
     app.add_plugins(WorldInspectorPlugin::new());
