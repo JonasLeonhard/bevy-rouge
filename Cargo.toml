@@ -6,7 +6,7 @@ edition = "2021"
 
 [dependencies]
 bevy = { version = "0.15", features = ["wayland"] }
-bevy_ecs_tilemap = "0.15.0"
+bevy-inspector-egui = "0.28.1"
 
 [features]
 default = [

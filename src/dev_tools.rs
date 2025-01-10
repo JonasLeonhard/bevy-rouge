@@ -7,12 +7,16 @@ use bevy::{
     input::common_conditions::input_just_pressed,
     prelude::*,
 };
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
 use crate::screens::Screen;
 
 pub(super) fn plugin(app: &mut App) {
     // Log `Screen` state transitions.
     app.add_systems(Update, log_transitions::<Screen>);
+
+    // bevy_inspector_egui
+    app.add_plugins(WorldInspectorPlugin::new());
 
     // Toggle the debug overlay for UI.
     app.add_plugins(DebugUiPlugin);

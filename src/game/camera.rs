@@ -1,5 +1,7 @@
 use bevy::prelude::*;
 
+use crate::components::Player;
+
 pub(super) fn plugin(app: &mut App) {
     // Spawn the main camera.
     app.add_systems(Startup, spawn_camera);
@@ -22,31 +24,40 @@ pub fn movement(
     time: Res<Time>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut query: Query<(&mut Transform, &mut OrthographicProjection), With<Camera>>,
+    player_query: Query<&mut Transform, (With<Player>, Without<Camera>)>,
 ) {
     for (mut transform, mut ortho) in query.iter_mut() {
         let mut direction = Vec3::ZERO;
 
-        if keyboard_input.pressed(KeyCode::KeyA) {
-            direction -= Vec3::new(1.0, 0.0, 0.0);
+        // jump to the player position
+        if keyboard_input.just_pressed(KeyCode::Space) {
+            if let Ok(player_transform) = player_query.get_single() {
+                transform.translation = player_transform.translation;
+                return;
+            }
         }
 
-        if keyboard_input.pressed(KeyCode::KeyD) {
-            direction += Vec3::new(1.0, 0.0, 0.0);
+        if keyboard_input.pressed(KeyCode::ArrowLeft) {
+            direction.x -= 1.0;
         }
 
-        if keyboard_input.pressed(KeyCode::KeyW) {
-            direction += Vec3::new(0.0, 1.0, 0.0);
+        if keyboard_input.pressed(KeyCode::ArrowRight) {
+            direction.x += 1.0;
         }
 
-        if keyboard_input.pressed(KeyCode::KeyS) {
-            direction -= Vec3::new(0.0, 1.0, 0.0);
+        if keyboard_input.pressed(KeyCode::ArrowUp) {
+            direction.y += 1.0;
         }
 
-        if keyboard_input.pressed(KeyCode::KeyZ) {
+        if keyboard_input.pressed(KeyCode::ArrowDown) {
+            direction.y -= 1.0;
+        }
+
+        if keyboard_input.pressed(KeyCode::PageUp) {
             ortho.scale += 0.1;
         }
 
-        if keyboard_input.pressed(KeyCode::KeyX) {
+        if keyboard_input.pressed(KeyCode::PageDown) {
             ortho.scale -= 0.1;
         }
 
@@ -54,10 +65,7 @@ pub fn movement(
             ortho.scale = 0.5;
         }
 
-        let z = transform.translation.z;
-        transform.translation += time.delta_secs() * direction * 500.;
-        // Important! We need to restore the Z values when moving the camera around.
-        // Bevy has a specific camera setup and this can mess with how our layers are shown.
-        transform.translation.z = z;
+        transform.translation.x += time.delta_secs() * direction.x * 500.;
+        transform.translation.y += time.delta_secs() * direction.y * 500.;
     }
 }
