@@ -21,16 +21,6 @@ impl Default for TurnTaker {
     }
 }
 
-/// A single tile on the tilemap has a TilePosition that increments by 1 for each tile
-/// TODO: requires MapPositionOccupied position?
-#[derive(Component)]
-pub struct TilePosition(pub IVec2);
-
-/// Positions with this marker Component are Taken, meaning you cannot walk here. The MapPosition
-/// might be a Wall, or a Player, a Forcefield or an Enemy etc.
-#[derive(Component)]
-pub struct TilePositionOccupied;
-
 #[derive(Component)]
 pub struct AnimationConfig {
     pub first_sprite_index: usize,
