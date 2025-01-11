@@ -24,6 +24,7 @@ fn spawn(
     let animation_config = AnimationConfig::new(0, 7, 10, true);
 
     commands.spawn((
+        Name::new("Player"),
         Player, // TODO: add the rest as required components?
         Transform {
             translation: Vec3 {

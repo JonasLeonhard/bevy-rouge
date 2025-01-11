@@ -30,6 +30,7 @@ fn spawn_chunk(commands: &mut Commands, asset_server: &AssetServer, chunk_pos: I
                     tilemap_id: TilemapId(tilemap_entity),
                     ..Default::default()
                 })
+                .insert(Name::new("Tile"))
                 .id();
             commands.entity(tilemap_entity).add_child(tile_entity);
             tile_storage.set(&tile_pos, tile_entity);
@@ -42,19 +43,22 @@ fn spawn_chunk(commands: &mut Commands, asset_server: &AssetServer, chunk_pos: I
         0.0,
     ));
     let texture_handle: Handle<Image> = asset_server.load("images/brick_dark0.png");
-    commands.entity(tilemap_entity).insert(TilemapBundle {
-        grid_size: TILE_SIZE.into(),
-        size: CHUNK_SIZE.into(),
-        storage: tile_storage,
-        texture: TilemapTexture::Single(texture_handle),
-        tile_size: TILE_SIZE,
-        transform,
-        render_settings: TilemapRenderSettings {
-            render_chunk_size: RENDER_CHUNK_SIZE,
+    commands
+        .entity(tilemap_entity)
+        .insert(TilemapBundle {
+            grid_size: TILE_SIZE.into(),
+            size: CHUNK_SIZE.into(),
+            storage: tile_storage,
+            texture: TilemapTexture::Single(texture_handle),
+            tile_size: TILE_SIZE,
+            transform,
+            render_settings: TilemapRenderSettings {
+                render_chunk_size: RENDER_CHUNK_SIZE,
+                ..Default::default()
+            },
             ..Default::default()
-        },
-        ..Default::default()
-    });
+        })
+        .insert(Name::new("Chunk"));
 }
 
 fn camera_pos_to_chunk_pos(camera_pos: &Vec2) -> IVec2 {
