@@ -1,5 +1,5 @@
-use crate::components::HighlightBorder;
-use crate::resources::{ChunkManager, CursorPosition};
+use crate::components::{HighlightBorder, Player};
+use crate::resources::{ChunkManager, HoveredTilePos};
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 
@@ -13,11 +13,17 @@ const RENDER_CHUNK_SIZE: UVec2 = UVec2 {
 pub(super) fn plugin(app: &mut App) {
     app.add_plugins(TilemapPlugin)
         .insert_resource(ChunkManager::default())
-        .insert_resource(CursorPosition::default())
-        .add_systems(Update, spawn_chunks_around_camera)
-        .add_systems(Update, despawn_outofrange_chunks)
-        .add_systems(Update, update_cursor_position)
-        .add_systems(Update, highlight_hovered_tile);
+        .insert_resource(HoveredTilePos(None))
+        .add_systems(
+            Update,
+            (
+                spawn_chunks_around_camera,
+                despawn_outofrange_chunks,
+                update_cursor_position,
+                draw_path_to_target,
+                highlight_hovered_tile,
+            ),
+        );
 }
 
 fn spawn_chunk(commands: &mut Commands, asset_server: &AssetServer, chunk_pos: IVec2) {
@@ -65,11 +71,11 @@ fn spawn_chunk(commands: &mut Commands, asset_server: &AssetServer, chunk_pos: I
         .insert(Name::new("Chunk"));
 }
 
-fn camera_pos_to_chunk_pos(camera_pos: &Vec2) -> IVec2 {
-    let camera_pos = camera_pos.as_ivec2();
+fn pos_to_chunk_pos(pos: &Vec2) -> IVec2 {
+    let ipos = pos.as_ivec2();
     let chunk_size: IVec2 = IVec2::new(CHUNK_SIZE.x as i32, CHUNK_SIZE.y as i32);
     let tile_size: IVec2 = IVec2::new(TILE_SIZE.x as i32, TILE_SIZE.y as i32);
-    camera_pos / (chunk_size * tile_size)
+    ipos / (chunk_size * tile_size)
 }
 
 fn spawn_chunks_around_camera(
@@ -79,7 +85,7 @@ fn spawn_chunks_around_camera(
     mut chunk_manager: ResMut<ChunkManager>,
 ) {
     for transform in camera_query.iter() {
-        let camera_chunk_pos = camera_pos_to_chunk_pos(&transform.translation.xy());
+        let camera_chunk_pos = pos_to_chunk_pos(&transform.translation.xy());
         for y in (camera_chunk_pos.y - 2)..(camera_chunk_pos.y + 2) {
             for x in (camera_chunk_pos.x - 2)..(camera_chunk_pos.x + 2) {
                 if !chunk_manager.spawned_chunks.contains(&IVec2::new(x, y)) {
@@ -113,111 +119,170 @@ fn despawn_outofrange_chunks(
 
 fn update_cursor_position(
     camera_query: Query<(&GlobalTransform, &Camera)>,
-    mut cursor_position: ResMut<CursorPosition>,
+    mut cursor_position: ResMut<HoveredTilePos>,
     mut cursor_moved_events: EventReader<CursorMoved>,
-) {
-    for cursor_moved in cursor_moved_events.read() {
-        // transform the mouse's window position by any transforms on the camera.
-        // This is done by projecting the cursor position into camera space (world space).
-        for (cam_t, cam) in camera_query.iter() {
-            if let Ok(pos) = cam.viewport_to_world_2d(cam_t, cursor_moved.position) {
-                *cursor_position = CursorPosition(pos);
-            }
-        }
-    }
-}
-
-fn highlight_hovered_tile(
-    mut commands: Commands,
-    cursor_pos: Res<CursorPosition>,
-    tilemap_query: Query<(
+    chunk_query: Query<(
         &TilemapSize,
         &TilemapGridSize,
         &TilemapType,
         &TileStorage,
         &Transform,
     )>,
+) {
+    for cursor_moved in cursor_moved_events.read() {
+        let mut found_tile = false;
+
+        // transform the mouse's window position to world space
+        for (cam_t, cam) in camera_query.iter() {
+            if let Ok(world_pos) = cam.viewport_to_world_2d(cam_t, cursor_moved.position) {
+                // Check each chunk/tilemap for a tile at this position
+                for (map_size, grid_size, map_type, tile_storage, map_transform) in
+                    chunk_query.iter()
+                {
+                    let cursor_in_map_pos: Vec2 = {
+                        let cursor_pos = Vec4::from((world_pos, 0.0, 1.0));
+                        let cursor_in_map_pos =
+                            map_transform.compute_matrix().inverse() * cursor_pos;
+                        cursor_in_map_pos.xy()
+                    };
+
+                    if let Some(tile_pos) =
+                        TilePos::from_world_pos(&cursor_in_map_pos, map_size, grid_size, map_type)
+                    {
+                        // Check if there's actually a tile here
+                        if tile_storage.get(&tile_pos).is_some() {
+                            // Get the center of the tile in world coordinates
+                            let tile_center = tile_pos.center_in_world(grid_size, map_type);
+                            let world_tile_center = (map_transform.compute_matrix()
+                                * Vec4::from((tile_center, 0.0, 1.0)))
+                            .xy();
+
+                            *cursor_position = HoveredTilePos(Some(world_tile_center));
+                            found_tile = true;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        if !found_tile {
+            *cursor_position = HoveredTilePos(None);
+        }
+    }
+}
+
+fn highlight_hovered_tile(
+    mut commands: Commands,
+    hovered_tile_pos: Res<HoveredTilePos>,
     highlighted_borders_query: Query<Entity, With<HighlightBorder>>,
 ) {
     // remove all tile HighlightBorder entities
     for border_entity in highlighted_borders_query.iter() {
         commands.entity(border_entity).despawn();
     }
-    for (map_size, grid_size, map_type, tile_storage, map_transform) in tilemap_query.iter() {
-        let cursor_pos: Vec2 = cursor_pos.0;
-        let cursor_in_map_pos: Vec2 = {
-            let cursor_pos = Vec4::from((cursor_pos, 0.0, 1.0));
-            let cursor_in_map_pos = map_transform.compute_matrix().inverse() * cursor_pos;
-            cursor_in_map_pos.xy()
-        };
-        let Some(tile_pos) =
-            TilePos::from_world_pos(&cursor_in_map_pos, map_size, grid_size, map_type)
-        else {
-            continue;
-        };
-        let Some(_tile_entity) = tile_storage.get(&tile_pos) else {
-            continue;
-        };
-        let outline_thickness = 2.0;
-        let outline_color = Color::srgb(255.0, 0.0, 0.0);
-        let tile_center = tile_pos.center_in_world(grid_size, map_type).extend(1.0);
-        let transform = *map_transform * Transform::from_translation(tile_center);
-        // Spawn all four borders
-        // Top border
-        commands.spawn((
-            Sprite {
-                color: outline_color,
-                custom_size: Some(Vec2::new(grid_size.x, outline_thickness)),
-                ..default()
-            },
-            Transform::from_xyz(
-                transform.translation.x,
-                transform.translation.y + (grid_size.y / 2.0),
-                transform.translation.z + 1.0,
-            ),
-            HighlightBorder,
-        ));
-        // Bottom border
-        commands.spawn((
-            Sprite {
-                color: outline_color,
-                custom_size: Some(Vec2::new(grid_size.x, outline_thickness)),
-                ..default()
-            },
-            Transform::from_xyz(
-                transform.translation.x,
-                transform.translation.y - (grid_size.y / 2.0),
-                transform.translation.z + 1.0,
-            ),
-            HighlightBorder,
-        ));
-        // Left border
-        commands.spawn((
-            Sprite {
-                color: outline_color,
-                custom_size: Some(Vec2::new(outline_thickness, grid_size.y)),
-                ..default()
-            },
-            Transform::from_xyz(
-                transform.translation.x - (grid_size.x / 2.0),
-                transform.translation.y,
-                transform.translation.z + 1.0,
-            ),
-            HighlightBorder,
-        ));
-        // Right border
-        commands.spawn((
-            Sprite {
-                color: outline_color,
-                custom_size: Some(Vec2::new(outline_thickness, grid_size.y)),
-                ..default()
-            },
-            Transform::from_xyz(
-                transform.translation.x + (grid_size.x / 2.0),
-                transform.translation.y,
-                transform.translation.z + 1.0,
-            ),
-            HighlightBorder,
-        ));
+
+    let Some(hovered_tile_center) = hovered_tile_pos.0 else {
+        return;
+    };
+
+    let outline_thickness = 2.0;
+    let outline_color = Color::srgb(255.0, 0.0, 0.0);
+    // Spawn all four borders at tile center position
+    // Top border
+    commands.spawn((
+        Sprite {
+            color: outline_color,
+            custom_size: Some(Vec2::new(TILE_SIZE.x, outline_thickness)),
+            ..default()
+        },
+        Transform::from_xyz(
+            hovered_tile_center.x,
+            hovered_tile_center.y + (TILE_SIZE.y / 2.0),
+            1.0,
+        ),
+        HighlightBorder,
+    ));
+
+    // Bottom border
+    commands.spawn((
+        Sprite {
+            color: outline_color,
+            custom_size: Some(Vec2::new(TILE_SIZE.x, outline_thickness)),
+            ..default()
+        },
+        Transform::from_xyz(
+            hovered_tile_center.x,
+            hovered_tile_center.y - (TILE_SIZE.y / 2.0),
+            1.0,
+        ),
+        HighlightBorder,
+    ));
+
+    // Left border
+    commands.spawn((
+        Sprite {
+            color: outline_color,
+            custom_size: Some(Vec2::new(outline_thickness, TILE_SIZE.y)),
+            ..default()
+        },
+        Transform::from_xyz(
+            hovered_tile_center.x - (TILE_SIZE.x / 2.0),
+            hovered_tile_center.y,
+            1.0,
+        ),
+        HighlightBorder,
+    ));
+
+    // Right border
+    commands.spawn((
+        Sprite {
+            color: outline_color,
+            custom_size: Some(Vec2::new(outline_thickness, TILE_SIZE.y)),
+            ..default()
+        },
+        Transform::from_xyz(
+            hovered_tile_center.x + (TILE_SIZE.x / 2.0),
+            hovered_tile_center.y,
+            1.0,
+        ),
+        HighlightBorder,
+    ));
+}
+
+pub fn draw_path_to_target(
+    player_query: Query<&Transform, With<Player>>,
+    hovered_tile_pos: Res<HoveredTilePos>,
+    mut gizmos: Gizmos,
+) {
+    let player_pos = if let Ok(transform) = player_query.get_single() {
+        transform.translation.xy()
+    } else {
+        return;
+    };
+
+    let Some(target_pos) = hovered_tile_pos.0 else {
+        return;
+    };
+
+    // TODO: A* pathfinding
+    let mut path_to_target = Vec::new();
+    path_to_target.push(player_pos);
+    path_to_target.push(target_pos);
+
+    // Draw path
+    let points: Vec<Vec3> = path_to_target
+        .iter()
+        .map(|pos| Vec3::new(pos.x, pos.y, 1.0))
+        .collect();
+
+    if points.len() >= 2 {
+        for points in points.windows(2) {
+            gizmos.line_2d(
+                points[0].xy(),
+                points[1].xy(),
+                Color::srgba(22.0, 101.0, 52.0, 1.0),
+            );
+        }
     }
 }

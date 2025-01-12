@@ -6,13 +6,7 @@ pub struct ChunkManager {
 }
 
 /// the actual mouse position in viewport_to_world_2d coordinates
+/// If offscreen - this is None
+/// The Position always snaps to the actual tile center position
 #[derive(Resource)]
-pub struct CursorPosition(pub Vec2);
-
-impl Default for CursorPosition {
-    fn default() -> Self {
-        // initialize at offscreen position. this will get
-        // updated when the cursor moves
-        Self(Vec2::new(-1000.0, -1000.0))
-    }
-}
+pub struct HoveredTilePos(pub Option<Vec2>);
