@@ -51,3 +51,6 @@ impl AnimationConfig {
         Timer::new(duration, mode)
     }
 }
+
+#[derive(Component)]
+pub struct HighlightBorder;
