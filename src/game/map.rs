@@ -9,6 +9,8 @@ const RENDER_CHUNK_SIZE: UVec2 = UVec2 {
     x: CHUNK_SIZE.x * 2,
     y: CHUNK_SIZE.y * 2,
 };
+pub const CHUNK_DESPAWN_RANGE: f32 = 256.0; // When a chunk is this far away from a player, it
+                                            // despawns. TODO: can we calculate a distance here?
 
 pub(super) fn plugin(app: &mut App) {
     app.add_plugins(TilemapPlugin)
@@ -17,10 +19,10 @@ pub(super) fn plugin(app: &mut App) {
         .add_systems(
             Update,
             (
-                spawn_chunks_around_camera,
+                spawn_chunks_around_player,
                 despawn_outofrange_chunks,
                 update_cursor_position,
-                draw_path_to_target,
+                draw_path_to_hovered_tile,
                 highlight_hovered_tile,
             ),
         );
@@ -78,20 +80,25 @@ fn pos_to_chunk_pos(pos: &Vec2) -> IVec2 {
     ipos / (chunk_size * tile_size)
 }
 
-fn spawn_chunks_around_camera(
+fn spawn_chunks_around_player(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    camera_query: Query<&Transform, With<Camera>>,
+    player_query: Query<&Transform, With<Player>>,
     mut chunk_manager: ResMut<ChunkManager>,
 ) {
-    for transform in camera_query.iter() {
-        let camera_chunk_pos = pos_to_chunk_pos(&transform.translation.xy());
-        for y in (camera_chunk_pos.y - 2)..(camera_chunk_pos.y + 2) {
-            for x in (camera_chunk_pos.x - 2)..(camera_chunk_pos.x + 2) {
-                if !chunk_manager.spawned_chunks.contains(&IVec2::new(x, y)) {
-                    chunk_manager.spawned_chunks.insert(IVec2::new(x, y));
-                    spawn_chunk(&mut commands, &asset_server, IVec2::new(x, y));
-                }
+    let Ok(transform) = player_query.get_single() else {
+        return;
+    };
+
+    let player_pos = transform.translation.xy();
+    let player_chunk_pos = pos_to_chunk_pos(&player_pos);
+
+    for y in (player_chunk_pos.y - 2)..(player_chunk_pos.y + 2) {
+        for x in (player_chunk_pos.x - 2)..(player_chunk_pos.x + 2) {
+            let chunk_pos = IVec2::new(x, y);
+            if !chunk_manager.spawned_chunks.contains(&chunk_pos) {
+                chunk_manager.spawned_chunks.insert(chunk_pos);
+                spawn_chunk(&mut commands, &asset_server, chunk_pos);
             }
         }
     }
@@ -99,20 +106,28 @@ fn spawn_chunks_around_camera(
 
 fn despawn_outofrange_chunks(
     mut commands: Commands,
-    camera_query: Query<&Transform, With<Camera>>,
-    chunks_query: Query<(Entity, &Transform)>,
+    player_query: Query<&Transform, With<Player>>,
+    chunks_query: Query<(Entity, &Transform), With<TileStorage>>,
     mut chunk_manager: ResMut<ChunkManager>,
 ) {
-    for camera_transform in camera_query.iter() {
-        for (entity, chunk_transform) in chunks_query.iter() {
-            let chunk_pos = chunk_transform.translation.xy();
-            let distance = camera_transform.translation.xy().distance(chunk_pos);
-            if distance > 320.0 {
-                let x = (chunk_pos.x / (CHUNK_SIZE.x as f32 * TILE_SIZE.x)).floor() as i32;
-                let y = (chunk_pos.y / (CHUNK_SIZE.y as f32 * TILE_SIZE.y)).floor() as i32;
-                chunk_manager.spawned_chunks.remove(&IVec2::new(x, y));
-                commands.entity(entity).despawn_recursive();
-            }
+    let Ok(player_transform) = player_query.get_single() else {
+        return;
+    };
+
+    let player_pos = player_transform.translation.xy();
+
+    for (entity, chunk_transform) in chunks_query.iter() {
+        let chunk_pos = chunk_transform.translation.xy();
+        let distance = player_pos.distance(chunk_pos);
+
+        if distance > CHUNK_DESPAWN_RANGE {
+            let chunk_grid_pos = IVec2::new(
+                (chunk_pos.x / (CHUNK_SIZE.x as f32 * TILE_SIZE.x)).floor() as i32,
+                (chunk_pos.y / (CHUNK_SIZE.y as f32 * TILE_SIZE.y)).floor() as i32,
+            );
+
+            chunk_manager.spawned_chunks.remove(&chunk_grid_pos);
+            commands.entity(entity).despawn_recursive();
         }
     }
 }
@@ -250,7 +265,7 @@ fn highlight_hovered_tile(
     ));
 }
 
-pub fn draw_path_to_target(
+pub fn draw_path_to_hovered_tile(
     player_query: Query<&Transform, With<Player>>,
     hovered_tile_pos: Res<HoveredTilePos>,
     mut gizmos: Gizmos,

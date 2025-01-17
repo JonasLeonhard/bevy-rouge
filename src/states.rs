@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-/// .run_if(in_state(TurnState::AwaitingInput))
+/// .run_if(in_state(TurnState::Player))
 #[derive(States, Hash, Debug, Clone, Eq, PartialEq, Default)]
 pub enum TurnState {
     #[default]
