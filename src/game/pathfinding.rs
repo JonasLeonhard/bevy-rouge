@@ -47,10 +47,7 @@ impl GridPosition {
 
     // returns x,y of (center of tile)
     pub fn to_world_pos(&self) -> Vec2 {
-        Vec2::new(
-            (self.x as f32 * TILE_SIZE.x) + (TILE_SIZE.x / 2.0),
-            (self.y as f32 * TILE_SIZE.y) + (TILE_SIZE.y / 2.0),
-        )
+        Vec2::new(self.x as f32 * TILE_SIZE.x, self.y as f32 * TILE_SIZE.y)
     }
 
     fn manhattan_distance(&self, other: &GridPosition) -> i32 {
