@@ -54,7 +54,3 @@ impl AnimationConfig {
 
 #[derive(Component)]
 pub struct HighlightBorder;
-
-/// Tiles you cannot move over
-#[derive(Component)]
-pub struct Obstacle;

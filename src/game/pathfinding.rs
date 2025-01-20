@@ -1,9 +1,6 @@
 use super::map::TILE_SIZE;
 use bevy::prelude::*;
-use bevy_ecs_tilemap::{
-    map::{TilemapGridSize, TilemapSize, TilemapTexture, TilemapType},
-    tiles::{TilePos, TileStorage, TileTextureIndex},
-};
+use bevy_ecs_tilemap::prelude::*;
 use pathfinding::prelude::astar;
 
 // ----- PATHFINDING ON THE MAP ----------

@@ -1,5 +1,5 @@
 use super::pathfinding::find_path;
-use crate::components::{HighlightBorder, Obstacle, Player};
+use crate::components::{HighlightBorder, Player};
 use crate::resources::{ChunkManager, HoveredTilePos};
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
