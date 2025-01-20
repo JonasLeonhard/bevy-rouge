@@ -9,6 +9,7 @@ bevy = { version = "0.15", features = ["wayland"] }
 bevy-inspector-egui = "0.28.1"
 bevy_ecs_tilemap = "0.15.0"
 pathfinding = "4.13.1"
+rand = "0.8.5"
 
 [features]
 default = [

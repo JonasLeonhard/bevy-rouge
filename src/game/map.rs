@@ -1,8 +1,9 @@
 use super::pathfinding::find_path;
-use crate::components::{HighlightBorder, Player};
+use crate::components::{HighlightBorder, Obstacle, Player};
 use crate::resources::{ChunkManager, HoveredTilePos};
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
+use rand::prelude::*;
 
 pub const TILE_SIZE: TilemapTileSize = TilemapTileSize { x: 16.0, y: 16.0 };
 const CHUNK_SIZE: UVec2 = UVec2 { x: 4, y: 4 };
@@ -31,18 +32,24 @@ pub(super) fn plugin(app: &mut App) {
 fn spawn_chunk(commands: &mut Commands, asset_server: &AssetServer, chunk_pos: IVec2) {
     let tilemap_entity = commands.spawn_empty().id();
     let mut tile_storage = TileStorage::empty(CHUNK_SIZE.into());
+    const OBSTACLE_CHANCE: f32 = 0.2;
+    let mut rng = rand::thread_rng();
 
     // Spawn the elements of the tilemap.
     for x in 0..CHUNK_SIZE.x {
         for y in 0..CHUNK_SIZE.y {
             let tile_pos = TilePos { x, y };
+            let is_obstacle = rng.gen::<f32>() < OBSTACLE_CHANCE;
+            let texture_index = if is_obstacle { 52 } else { 5 };
+
             let tile_entity = commands
                 .spawn(TileBundle {
                     position: tile_pos,
                     tilemap_id: TilemapId(tilemap_entity),
+                    texture_index: TileTextureIndex(texture_index),
                     ..Default::default()
                 })
-                .insert(Name::new("Tile"))
+                .insert(Name::new(if is_obstacle { "Wall" } else { "Floor" }))
                 .id();
             commands.entity(tilemap_entity).add_child(tile_entity);
             tile_storage.set(&tile_pos, tile_entity);
@@ -54,14 +61,16 @@ fn spawn_chunk(commands: &mut Commands, asset_server: &AssetServer, chunk_pos: I
         chunk_pos.y as f32 * CHUNK_SIZE.y as f32 * TILE_SIZE.y,
         0.0,
     ));
-    let texture_handle: Handle<Image> = asset_server.load("images/brick_dark0.png");
-    commands
-        .entity(tilemap_entity)
+
+    let texture_atlas = asset_server.load("images/atlas.png");
+    let mut entity = commands.entity(tilemap_entity);
+
+    entity
         .insert(TilemapBundle {
             grid_size: TILE_SIZE.into(),
             size: CHUNK_SIZE.into(),
             storage: tile_storage,
-            texture: TilemapTexture::Single(texture_handle),
+            texture: TilemapTexture::Single(texture_atlas),
             tile_size: TILE_SIZE,
             transform,
             render_settings: TilemapRenderSettings {
@@ -266,6 +275,14 @@ fn highlight_hovered_tile(
 }
 
 pub fn draw_path_to_hovered_tile(
+    chunks_query: Query<(
+        &TileStorage,
+        &TilemapSize,
+        &TilemapGridSize,
+        &TilemapType,
+        &Transform,
+    )>,
+    tile_query: Query<&TileTextureIndex>,
     player_query: Query<&Transform, With<Player>>,
     hovered_tile_pos: Res<HoveredTilePos>,
     mut gizmos: Gizmos,
@@ -280,7 +297,7 @@ pub fn draw_path_to_hovered_tile(
         return;
     };
 
-    let Some(path_to_target) = find_path(player_pos, target_pos) else {
+    let Some(path_to_target) = find_path(&chunks_query, &tile_query, player_pos, target_pos) else {
         return;
     };
 
@@ -300,3 +317,5 @@ pub fn draw_path_to_hovered_tile(
         }
     }
 }
+
+// field of view using MRPAS: https://www.roguebasin.com/index.php?title=Restrictive_Precise_Angle_Shadowcasting
