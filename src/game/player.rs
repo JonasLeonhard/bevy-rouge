@@ -1,5 +1,5 @@
 use crate::{
-    components::{AnimationConfig, Player, TurnTaker},
+    components::{AnimationConfig, FieldOfView, Player, TurnTaker},
     resources::{HoveredTilePos, PlayerTargetPos},
     states::TurnState,
 };
@@ -42,9 +42,10 @@ fn spawn(
             ..default()
         },
         TurnTaker {
-            actions_per_turn: 2, // -- movement takes an action!
-            actions_remaining: 2,
+            actions_per_turn: 200, // -- movement takes an action!
+            actions_remaining: 200,
         },
+        FieldOfView::new(10),
         Sprite {
             image: player_asset,
             texture_atlas: Some(TextureAtlas {

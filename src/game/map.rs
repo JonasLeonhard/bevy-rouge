@@ -1,9 +1,10 @@
-use super::pathfinding::find_path;
 use crate::components::{HighlightBorder, Player};
 use crate::resources::{ChunkManager, HoveredTilePos};
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 use rand::prelude::*;
+
+use super::grid::GameGrid;
 
 pub const TILE_SIZE: TilemapTileSize = TilemapTileSize { x: 16.0, y: 16.0 };
 const CHUNK_SIZE: UVec2 = UVec2 { x: 4, y: 4 };
@@ -297,7 +298,9 @@ pub fn draw_path_to_hovered_tile(
         return;
     };
 
-    let Some(path_to_target) = find_path(&chunks_query, &tile_query, player_pos, target_pos) else {
+    let Some(path_to_target) =
+        GameGrid::find_path(&chunks_query, &tile_query, player_pos, target_pos)
+    else {
         return;
     };
 
@@ -317,5 +320,3 @@ pub fn draw_path_to_hovered_tile(
         }
     }
 }
-
-// field of view using MRPAS: https://www.roguebasin.com/index.php?title=Restrictive_Precise_Angle_Shadowcasting
