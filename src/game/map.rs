@@ -150,6 +150,7 @@ impl GameGrid {
         })
     }
 
+    /// TODO: dont know about this...
     /// Cast a ray from one grid position to another, returning all positions along the ray
     /// Including the start and end positions
     pub fn raycast(from: GridPos, to: GridPos) -> Vec<GridPos> {

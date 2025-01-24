@@ -57,22 +57,10 @@ impl FieldOfView {
         let center_pos = GridPos::from_world_pos(position);
         let positions_in_view_range = self.get_positions_in_view_range(&center_pos);
 
-        let mut non_transparent_but_in_viewrange: Vec<GridPos> = vec![];
-
         // Set all positions that are in the FOV
         for pos in &positions_in_view_range {
             // all walkable positions are transparent
             let is_transparent = GameGrid::is_walkable(pos, chunks_query, tile_query);
-
-            // we want to include tiles in the fov if the Entity has direct sight of the tile.
-            // Meaning we raycast to the position and check if the player has a direct view of the
-            // tile. Eg. trees, walls etc. Those tiles are always in the fov. We don't include them
-            // in the set_transparent calculation, but rather add them to visible_positions later.
-            if !is_transparent
-                && GameGrid::has_line_of_sight(center_pos, *pos, chunks_query, tile_query)
-            {
-                non_transparent_but_in_viewrange.push(*pos);
-            }
 
             // Convert to FOV grid coordinates
             let fov_x = ((pos.x - center_pos.x) + self.view_range as i32) as usize;
@@ -84,7 +72,7 @@ impl FieldOfView {
         // Compute FOV from center
         let center = self.view_range;
         self.fov
-            .compute_fov(&mut self.fov_map, center, center, self.view_range, false);
+            .compute_fov(&mut self.fov_map, center, center, self.view_range, true);
 
         // Update visible positions
         // Update visible positions, including blocking tiles that are in view
@@ -95,7 +83,6 @@ impl FieldOfView {
                 let fov_y = ((pos.y - center_pos.y) + self.view_range as i32) as usize;
 
                 self.fov_map.is_in_fov(fov_x, fov_y)
-                    || non_transparent_but_in_viewrange.contains(pos)
             })
             .collect();
     }
