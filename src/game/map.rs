@@ -1,18 +1,239 @@
-use crate::components::{HighlightBorder, Player};
-use crate::resources::{ChunkManager, HoveredTilePos};
-use bevy::prelude::*;
+use crate::components::Player;
+use bevy::{prelude::*, utils::HashSet};
 use bevy_ecs_tilemap::prelude::*;
+use pathfinding::prelude::astar;
 use rand::prelude::*;
 
-use super::grid::GameGrid;
+/// hovered highlighted tile
+#[derive(Component)]
+pub struct HighlightBorder;
+
+/// the actual mouse position in viewport_to_world_2d coordinates
+/// If offscreen - this is None
+/// The Position always snaps to the actual tile center position
+#[derive(Resource)]
+pub struct HoveredTilePos(pub Option<Vec2>);
+
+#[derive(Default, Debug, Resource)]
+pub struct ChunkManager {
+    pub spawned_chunks: HashSet<IVec2>,
+}
 
 pub const TILE_SIZE: TilemapTileSize = TilemapTileSize { x: 16.0, y: 16.0 };
-const CHUNK_SIZE: UVec2 = UVec2 { x: 4, y: 4 };
+const CHUNK_SIZE: UVec2 = UVec2 { x: 30, y: 30 };
 const RENDER_CHUNK_SIZE: UVec2 = UVec2 {
     x: CHUNK_SIZE.x * 2,
     y: CHUNK_SIZE.y * 2,
 };
-pub const CHUNK_DESPAWN_RANGE: f32 = 256.0; // When a chunk is this far away from a player, it despawns automatically
+pub const CHUNK_DESPAWN_RANGE: f32 = 1000.0; // When a chunk is this far away from a player, it despawns automatically
+
+// each tile is our world has a Grid Position that can be calculated from a World Position
+// this is a basic building block for pathfinding and fov calculations
+#[derive(Clone, Copy, Eq, PartialEq, Hash, Debug)]
+pub struct GridPos {
+    pub x: i32,
+    pub y: i32,
+}
+
+impl GridPos {
+    pub fn from_world_pos(world_pos: Vec2) -> Self {
+        Self {
+            x: (world_pos.x / TILE_SIZE.x).floor() as i32,
+            y: (world_pos.y / TILE_SIZE.y).floor() as i32,
+        }
+    }
+
+    pub fn to_world_pos(&self) -> Vec2 {
+        Vec2::new(self.x as f32 * TILE_SIZE.x, self.y as f32 * TILE_SIZE.y)
+    }
+
+    pub fn manhattan_distance(&self, other: &GridPos) -> i32 {
+        (self.x - other.x).abs() + (self.y - other.y).abs()
+    }
+}
+
+// grid helper struct for pathfinding & position management
+pub struct GameGrid;
+
+impl GameGrid {
+    /// Returns whether a position is walkable based on tile's at the position
+    pub fn is_walkable(
+        pos: &GridPos,
+        chunks_query: &Query<(
+            &TileStorage,
+            &TilemapSize,
+            &TilemapGridSize,
+            &TilemapType,
+            &Transform,
+        )>,
+        tile_query: &Query<&TileTextureIndex>,
+    ) -> bool {
+        let world_pos = pos.to_world_pos();
+        chunks_query
+            .iter()
+            .any(|(tile_storage, map_size, grid_size, map_type, transform)| {
+                let pos_in_chunk: Vec2 = {
+                    let pos = Vec4::from((world_pos, 0.0, 1.0));
+                    let pos_in_chunk = transform.compute_matrix().inverse() * pos;
+                    pos_in_chunk.xy()
+                };
+
+                let Some(tile_pos) =
+                    TilePos::from_world_pos(&pos_in_chunk, map_size, grid_size, map_type)
+                else {
+                    return false;
+                };
+
+                let Some(tile_entity) = tile_storage.get(&tile_pos) else {
+                    return false;
+                };
+
+                let Ok(texture_index) = tile_query.get(tile_entity) else {
+                    return false;
+                };
+
+                texture_index.0 == 5 // TODO: Make this configurable
+            })
+    }
+
+    fn get_successors(
+        pos: &GridPos,
+        chunks_query: &Query<(
+            &TileStorage,
+            &TilemapSize,
+            &TilemapGridSize,
+            &TilemapType,
+            &Transform,
+        )>,
+        tile_query: &Query<&TileTextureIndex>,
+    ) -> Vec<(GridPos, i32)> {
+        let directions = [(0, 1), (1, 0), (0, -1), (-1, 0)];
+
+        directions
+            .iter()
+            .map(|&(dx, dy)| GridPos {
+                x: pos.x + dx,
+                y: pos.y + dy,
+            })
+            .filter(|pos| Self::is_walkable(pos, chunks_query, tile_query))
+            .map(|pos| (pos, 1))
+            .collect()
+    }
+
+    /// Find a path between two world positions
+    pub fn find_path(
+        chunks_query: &Query<(
+            &TileStorage,
+            &TilemapSize,
+            &TilemapGridSize,
+            &TilemapType,
+            &Transform,
+        )>,
+        tile_query: &Query<&TileTextureIndex>,
+        from: Vec2,
+        to: Vec2,
+    ) -> Option<Vec<Vec2>> {
+        let start = GridPos::from_world_pos(from);
+        let goal = GridPos::from_world_pos(to);
+
+        let result = astar(
+            &start,
+            |p| Self::get_successors(p, chunks_query, tile_query),
+            |p| p.manhattan_distance(&goal),
+            |p| p == &goal,
+        );
+
+        result.map(|(path, _cost)| {
+            path.into_iter()
+                .map(|grid_pos| grid_pos.to_world_pos())
+                .collect()
+        })
+    }
+
+    /// Cast a ray from one grid position to another, returning all positions along the ray
+    /// Including the start and end positions
+    pub fn raycast(from: GridPos, to: GridPos) -> Vec<GridPos> {
+        if from == to {
+            return vec![from];
+        }
+
+        let dx = (to.x - from.x) as f32;
+        let dy = (to.y - from.y) as f32;
+        let distance = (dx * dx + dy * dy).sqrt();
+
+        // Use double the distance for steps to ensure we don't miss any grid cells
+        let steps = (distance * 2.0).ceil() as i32;
+        let mut positions = Vec::with_capacity(steps as usize);
+
+        for i in 0..=steps {
+            let t = i as f32 / steps as f32;
+            let x = (from.x as f32 + dx * t).round() as i32;
+            let y = (from.y as f32 + dy * t).round() as i32;
+
+            let pos = GridPos { x, y };
+
+            // Only add if it's a new position (avoid duplicates from rounding)
+            if positions.last().map_or(true, |&last| last != pos) {
+                positions.push(pos);
+            }
+        }
+
+        positions
+    }
+
+    /// Cast a ray and return the first non-walkable position, if any
+    /// Returns None if the ray reaches the target without hitting anything
+    pub fn raycast_hit(
+        from: GridPos,
+        to: GridPos,
+        chunks_query: &Query<(
+            &TileStorage,
+            &TilemapSize,
+            &TilemapGridSize,
+            &TilemapType,
+            &Transform,
+        )>,
+        tile_query: &Query<&TileTextureIndex>,
+    ) -> Option<GridPos> {
+        let positions = Self::raycast(from, to);
+
+        for pos in positions {
+            if !Self::is_walkable(&pos, chunks_query, tile_query) {
+                return Some(pos);
+            }
+        }
+
+        None
+    }
+
+    /// Check if there is direct line of sight between two positions
+    pub fn has_line_of_sight(
+        from: GridPos,
+        to: GridPos,
+        chunks_query: &Query<(
+            &TileStorage,
+            &TilemapSize,
+            &TilemapGridSize,
+            &TilemapType,
+            &Transform,
+        )>,
+        tile_query: &Query<&TileTextureIndex>,
+    ) -> bool {
+        if from == to {
+            return true;
+        }
+
+        let hit = Self::raycast_hit(from, to, chunks_query, tile_query);
+
+        // We have line of sight if we either:
+        // 1. Hit nothing (ray reached target)
+        // 2. Hit the target position exactly
+        match hit {
+            None => true,
+            Some(hit_pos) => hit_pos == to,
+        }
+    }
+}
 
 pub(super) fn plugin(app: &mut App) {
     app.add_plugins(TilemapPlugin)
@@ -48,6 +269,7 @@ fn spawn_chunk(commands: &mut Commands, asset_server: &AssetServer, chunk_pos: I
                     position: tile_pos,
                     tilemap_id: TilemapId(tilemap_entity),
                     texture_index: TileTextureIndex(texture_index),
+                    visible: TileVisible(false), // INFO: TileVisibility will be set in fog_of_war
                     ..Default::default()
                 })
                 .insert(Name::new(if is_obstacle { "Wall" } else { "Floor" }))

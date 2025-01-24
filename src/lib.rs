@@ -35,6 +35,8 @@ impl Plugin for AppPlugin {
                 .set(ImagePlugin::default_nearest()), // make nearest sampling default for pixel art
         );
 
+        app.insert_resource(ClearColor(Color::srgb(0., 0., 0.)));
+
         // Add other plugins.
         app.add_plugins((game::plugin, screens::plugin));
 

@@ -1,9 +1,17 @@
 use crate::{
-    components::{AnimationConfig, FieldOfView, Player, TurnTaker},
-    resources::{HoveredTilePos, PlayerTargetPos},
+    components::{AnimationConfig, FieldOfView, TurnTaker},
+    resources::HoveredTilePos,
     states::TurnState,
 };
 use bevy::prelude::*;
+
+#[derive(Component)]
+pub struct Player;
+
+/// position in viewport_to_world_2d coordinates the player wants to move to.
+/// This gets set when left-clicked
+#[derive(Resource)]
+pub struct PlayerTargetPos(pub Option<Vec2>);
 
 pub(super) fn plugin(app: &mut App) {
     app.insert_resource(PlayerTargetPos(None))
