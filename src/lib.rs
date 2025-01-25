@@ -1,7 +1,6 @@
 mod components;
 #[cfg(feature = "dev")]
 mod dev_tools;
-mod events;
 mod game;
 mod resources;
 mod screens;

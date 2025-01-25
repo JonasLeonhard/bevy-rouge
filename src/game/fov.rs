@@ -2,7 +2,6 @@ use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 
 use super::map::{GameGrid, GridPos, TILE_SIZE};
-use crate::events::Moved;
 use doryen_fov::{FovAlgorithm, FovRestrictive, MapData};
 
 // Component for entities that have field of view
@@ -98,8 +97,7 @@ pub fn plugin(app: &mut App) {
 // System to update FOV for all entities that have one
 // PERF: only need to call this if the entity has moved
 fn update_fov(
-    mut moved_events: EventReader<Moved>,
-    mut query: Query<(Entity, &mut FieldOfView)>,
+    mut query: Query<(&Transform, &mut FieldOfView)>,
     chunks_query: Query<(
         &TileStorage,
         &TilemapSize,
@@ -109,12 +107,8 @@ fn update_fov(
     )>,
     tile_query: Query<&TileTextureIndex>,
 ) {
-    for moved_event in moved_events.read() {
-        for (entity, mut fov) in query.iter_mut() {
-            if moved_event.entity == entity {
-                fov.update(moved_event.position.xy(), &chunks_query, &tile_query);
-            }
-        }
+    for (transform, mut fov) in query.iter_mut() {
+        fov.update(transform.translation.xy(), &chunks_query, &tile_query);
     }
 }
 

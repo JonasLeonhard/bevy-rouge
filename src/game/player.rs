@@ -5,12 +5,6 @@ use crate::{
 };
 use bevy::prelude::*;
 
-#[derive(Event)]
-pub struct Moved {
-    pub entity: Entity,
-    pub position: Vec3,
-}
-
 #[derive(Component)]
 pub struct Player;
 
@@ -21,7 +15,6 @@ pub struct PlayerTargetPos(pub Option<Vec2>);
 
 pub(super) fn plugin(app: &mut App) {
     app.insert_resource(PlayerTargetPos(None))
-        .add_event::<Moved>()
         .add_systems(Startup, spawn)
         .add_systems(
             Update,
@@ -35,7 +28,6 @@ fn spawn(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
-    mut moved_event: EventWriter<Moved>,
 ) {
     // The only thing we have in our level is a player,
     // but add things like walls etc. here.
@@ -45,19 +37,17 @@ fn spawn(
     let texture_atlas_layout = texture_atlas_layouts.add(layout);
     let animation_config = AnimationConfig::new(0, 7, 10, true);
 
-    let player_transform = Transform {
-        translation: Vec3 {
-            x: 0.0,
-            y: 0.0,
-            z: 1.,
-        },
-        ..default()
-    };
-
-    let player_spawn_cmd = commands.spawn((
+    commands.spawn((
         Name::new("Player"),
         Player, // TODO: add the rest as required components?
-        player_transform,
+        Transform {
+            translation: Vec3 {
+                x: 0.0,
+                y: 0.0,
+                z: 1.,
+            },
+            ..default()
+        },
         TurnTaker {
             actions_per_turn: 200, // -- movement takes an action!
             actions_remaining: 200,
@@ -74,11 +64,6 @@ fn spawn(
         },
         animation_config,
     ));
-
-    moved_event.send(Moved {
-        entity: player_spawn_cmd.id(),
-        position: player_transform.translation,
-    });
 }
 
 fn on_click_set_target_pos(
@@ -94,12 +79,11 @@ fn on_click_set_target_pos(
 }
 
 fn move_player(
-    mut player_query: Query<(Entity, &mut Transform, &mut TurnTaker), With<Player>>,
+    mut player_query: Query<(&mut Transform, &mut TurnTaker), With<Player>>,
     mut target_pos: ResMut<PlayerTargetPos>,
-    mut player_moved_event: EventWriter<Moved>,
 ) {
     if let Some(target) = target_pos.0 {
-        let Ok((entity, mut transform, mut turn_taker)) = player_query.get_single_mut() else {
+        let Ok((mut transform, mut turn_taker)) = player_query.get_single_mut() else {
             return;
         };
 
@@ -107,10 +91,6 @@ fn move_player(
             // Move the player to the target position
             transform.translation.x = target.x;
             transform.translation.y = target.y;
-            player_moved_event.send(Moved {
-                entity,
-                position: transform.translation,
-            });
 
             // Moving Consumes an action
             turn_taker.actions_remaining -= 1;
