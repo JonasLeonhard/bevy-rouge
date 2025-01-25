@@ -5,10 +5,20 @@ use crate::components::{FieldOfView, Player};
 
 use super::{map::GridPos, map::TILE_SIZE};
 
-#[derive(Resource, Default)]
+#[derive(Resource)]
 pub struct FogOfWar {
     /// positions the player once had in the fov
     viewed_positions: HashSet<GridPos>,
+    pub enabled: bool,
+}
+
+impl Default for FogOfWar {
+    fn default() -> Self {
+        Self {
+            viewed_positions: HashSet::default(),
+            enabled: true,
+        }
+    }
 }
 
 pub fn plugin(app: &mut App) {
@@ -35,6 +45,10 @@ fn render_viewed_positions(
     mut tile_query: Query<(&TilePos, &mut TileVisible, &mut TileColor, &Parent)>,
     tilemap_query: Query<&Transform>,
 ) {
+    if !fog_of_war.enabled {
+        return;
+    }
+
     let Ok(player_fov) = player_query.get_single() else {
         return;
     };

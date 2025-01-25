@@ -14,3 +14,10 @@ pub enum Screen {
     #[default]
     Gameplay,
 }
+
+#[derive(States, Debug, Hash, PartialEq, Eq, Clone, Default)]
+pub enum FogOfWarState {
+    #[default]
+    Visible,
+    Debug,
+}

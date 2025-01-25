@@ -11,6 +11,7 @@ pub struct FieldOfView {
     fov: FovRestrictive,
     fov_map: MapData,
     pub visible_positions: Vec<GridPos>,
+    pub show_debug_grid: bool,
 }
 
 impl FieldOfView {
@@ -21,6 +22,7 @@ impl FieldOfView {
             fov: FovRestrictive::new(),
             fov_map: MapData::new(grid_size, grid_size),
             visible_positions: Vec::new(),
+            show_debug_grid: false,
         }
     }
 
@@ -89,8 +91,7 @@ impl FieldOfView {
 }
 
 pub fn plugin(app: &mut App) {
-    app.add_systems(Update, update_fov)
-        .add_systems(Update, debug_fov);
+    app.add_systems(Update, (update_fov, show_debug_grid));
 }
 
 // System to update FOV for all entities that have one
@@ -110,9 +111,13 @@ fn update_fov(
     }
 }
 
-// TODO: probably toggle this in dev_tools?
-fn debug_fov(mut gizmos: Gizmos, query: Query<(&Transform, &FieldOfView)>) {
+// Called in dev_tools
+fn show_debug_grid(mut gizmos: Gizmos, query: Query<(&Transform, &FieldOfView)>) {
     for (transform, fov) in query.iter() {
+        if !fov.show_debug_grid {
+            continue;
+        }
+
         let center_pos = GridPos::from_world_pos(transform.translation.xy());
         let all_positions = fov.get_positions_in_view_range(&center_pos);
 
