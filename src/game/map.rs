@@ -1,12 +1,9 @@
 use crate::components::Player;
 use bevy::{prelude::*, utils::HashSet};
 use bevy_ecs_tilemap::prelude::*;
+use bresenham::Bresenham;
 use pathfinding::prelude::astar;
 use rand::prelude::*;
-
-/// hovered highlighted tile
-#[derive(Component)]
-pub struct HighlightBorder;
 
 /// the actual mouse position in viewport_to_world_2d coordinates
 /// If offscreen - this is None
@@ -25,7 +22,6 @@ const RENDER_CHUNK_SIZE: UVec2 = UVec2 {
     x: CHUNK_SIZE.x * 2,
     y: CHUNK_SIZE.y * 2,
 };
-pub const CHUNK_DESPAWN_RANGE: f32 = 1000.0; // When a chunk is this far away from a player, it despawns automatically
 
 // each tile is our world has a Grid Position that can be calculated from a World Position
 // this is a basic building block for pathfinding and fov calculations
@@ -33,6 +29,21 @@ pub const CHUNK_DESPAWN_RANGE: f32 = 1000.0; // When a chunk is this far away fr
 pub struct GridPos {
     pub x: i32,
     pub y: i32,
+}
+
+impl From<(isize, isize)> for GridPos {
+    fn from(tuple: (isize, isize)) -> Self {
+        GridPos {
+            x: tuple.0 as i32,
+            y: tuple.1 as i32,
+        }
+    }
+}
+
+impl From<GridPos> for (isize, isize) {
+    fn from(pos: GridPos) -> Self {
+        (pos.x as isize, pos.y as isize)
+    }
 }
 
 impl GridPos {
@@ -153,33 +164,9 @@ impl GameGrid {
     /// TODO: dont know about this...
     /// Cast a ray from one grid position to another, returning all positions along the ray
     /// Including the start and end positions
-    pub fn raycast(from: GridPos, to: GridPos) -> Vec<GridPos> {
-        if from == to {
-            return vec![from];
-        }
-
-        let dx = (to.x - from.x) as f32;
-        let dy = (to.y - from.y) as f32;
-        let distance = (dx * dx + dy * dy).sqrt();
-
-        // Use double the distance for steps to ensure we don't miss any grid cells
-        let steps = (distance * 2.0).ceil() as i32;
-        let mut positions = Vec::with_capacity(steps as usize);
-
-        for i in 0..=steps {
-            let t = i as f32 / steps as f32;
-            let x = (from.x as f32 + dx * t).round() as i32;
-            let y = (from.y as f32 + dy * t).round() as i32;
-
-            let pos = GridPos { x, y };
-
-            // Only add if it's a new position (avoid duplicates from rounding)
-            if positions.last().map_or(true, |&last| last != pos) {
-                positions.push(pos);
-            }
-        }
-
-        positions
+    /// https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
+    pub fn raycast(from: GridPos, to: GridPos) -> Bresenham {
+        return Bresenham::new(from.into(), to.into());
     }
 
     /// Cast a ray and return the first non-walkable position, if any
@@ -199,8 +186,8 @@ impl GameGrid {
         let positions = Self::raycast(from, to);
 
         for pos in positions {
-            if !Self::is_walkable(&pos, chunks_query, tile_query) {
-                return Some(pos);
+            if !Self::is_walkable(&pos.into(), chunks_query, tile_query) {
+                return Some(pos.into());
             }
         }
 
@@ -244,7 +231,6 @@ pub(super) fn plugin(app: &mut App) {
             Update,
             (
                 spawn_chunks_around_player,
-                despawn_outofrange_chunks,
                 update_cursor_position,
                 draw_path_to_hovered_tile,
                 highlight_hovered_tile,
@@ -337,34 +323,6 @@ fn spawn_chunks_around_player(
     }
 }
 
-fn despawn_outofrange_chunks(
-    mut commands: Commands,
-    player_query: Query<&Transform, With<Player>>,
-    chunks_query: Query<(Entity, &Transform), With<TileStorage>>,
-    mut chunk_manager: ResMut<ChunkManager>,
-) {
-    let Ok(player_transform) = player_query.get_single() else {
-        return;
-    };
-
-    let player_pos = player_transform.translation.xy();
-
-    for (entity, chunk_transform) in chunks_query.iter() {
-        let chunk_pos = chunk_transform.translation.xy();
-        let distance = player_pos.distance(chunk_pos);
-
-        if distance > CHUNK_DESPAWN_RANGE {
-            let chunk_grid_pos = IVec2::new(
-                (chunk_pos.x / (CHUNK_SIZE.x as f32 * TILE_SIZE.x)).floor() as i32,
-                (chunk_pos.y / (CHUNK_SIZE.y as f32 * TILE_SIZE.y)).floor() as i32,
-            );
-
-            chunk_manager.spawned_chunks.remove(&chunk_grid_pos);
-            commands.entity(entity).despawn_recursive();
-        }
-    }
-}
-
 fn update_cursor_position(
     camera_query: Query<(&GlobalTransform, &Camera)>,
     mut cursor_position: ResMut<HoveredTilePos>,
@@ -420,82 +378,16 @@ fn update_cursor_position(
     }
 }
 
-fn highlight_hovered_tile(
-    mut commands: Commands,
-    hovered_tile_pos: Res<HoveredTilePos>,
-    highlighted_borders_query: Query<Entity, With<HighlightBorder>>,
-) {
-    // remove all tile HighlightBorder entities
-    for border_entity in highlighted_borders_query.iter() {
-        commands.entity(border_entity).despawn();
-    }
-
-    let Some(hovered_tile_center) = hovered_tile_pos.0 else {
+fn highlight_hovered_tile(hovered_tile_pos: Res<HoveredTilePos>, mut gizmos: Gizmos) {
+    let Some(pos) = hovered_tile_pos.0 else {
         return;
     };
 
-    let outline_thickness = 2.0;
-    let outline_color = Color::srgb(255.0, 0.0, 0.0);
-    // Spawn all four borders at tile center position
-    // Top border
-    commands.spawn((
-        Sprite {
-            color: outline_color,
-            custom_size: Some(Vec2::new(TILE_SIZE.x, outline_thickness)),
-            ..default()
-        },
-        Transform::from_xyz(
-            hovered_tile_center.x,
-            hovered_tile_center.y + (TILE_SIZE.y / 2.0),
-            1.0,
-        ),
-        HighlightBorder,
-    ));
-
-    // Bottom border
-    commands.spawn((
-        Sprite {
-            color: outline_color,
-            custom_size: Some(Vec2::new(TILE_SIZE.x, outline_thickness)),
-            ..default()
-        },
-        Transform::from_xyz(
-            hovered_tile_center.x,
-            hovered_tile_center.y - (TILE_SIZE.y / 2.0),
-            1.0,
-        ),
-        HighlightBorder,
-    ));
-
-    // Left border
-    commands.spawn((
-        Sprite {
-            color: outline_color,
-            custom_size: Some(Vec2::new(outline_thickness, TILE_SIZE.y)),
-            ..default()
-        },
-        Transform::from_xyz(
-            hovered_tile_center.x - (TILE_SIZE.x / 2.0),
-            hovered_tile_center.y,
-            1.0,
-        ),
-        HighlightBorder,
-    ));
-
-    // Right border
-    commands.spawn((
-        Sprite {
-            color: outline_color,
-            custom_size: Some(Vec2::new(outline_thickness, TILE_SIZE.y)),
-            ..default()
-        },
-        Transform::from_xyz(
-            hovered_tile_center.x + (TILE_SIZE.x / 2.0),
-            hovered_tile_center.y,
-            1.0,
-        ),
-        HighlightBorder,
-    ));
+    gizmos.rect_2d(
+        pos,
+        Vec2::new(TILE_SIZE.x, TILE_SIZE.y),
+        Color::srgba(1.0, 0.0, 0.0, 0.3),
+    );
 }
 
 pub fn draw_path_to_hovered_tile(
