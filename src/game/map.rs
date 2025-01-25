@@ -1,4 +1,5 @@
 use crate::components::Player;
+use crate::events::Moved;
 use bevy::{prelude::*, utils::HashSet};
 use bevy_ecs_tilemap::prelude::*;
 use bresenham::Bresenham;
@@ -312,45 +313,54 @@ fn pos_to_chunk_pos(pos: &Vec2) -> IVec2 {
 
 fn spawn_chunks_around_player(
     mut commands: Commands,
+    mut move_events: EventReader<Moved>,
+    player_query: Query<Entity, With<Player>>,
     asset_server: Res<AssetServer>,
-    player_query: Query<&Transform, With<Player>>,
     mut chunk_manager: ResMut<ChunkManager>,
 ) {
-    let Ok(transform) = player_query.get_single() else {
+    let Ok(player) = player_query.get_single() else {
         return;
     };
 
-    let player_pos = transform.translation.xy();
-    let player_chunk_pos = pos_to_chunk_pos(&player_pos);
-    let chunks = get_chunk_positions_around(player_chunk_pos);
+    for move_event in move_events.read() {
+        if move_event.entity == player {
+            // let player_pos = transform.translation.xy();
+            let player_chunk_pos = pos_to_chunk_pos(&move_event.position.xy());
+            let chunks = get_chunk_positions_around(player_chunk_pos);
 
-    for chunk_pos in chunks {
-        if !chunk_manager.spawned_chunks.contains(&chunk_pos) {
-            chunk_manager.spawned_chunks.insert(chunk_pos);
-            spawn_chunk(&mut commands, &asset_server, chunk_pos);
+            for chunk_pos in chunks {
+                if !chunk_manager.spawned_chunks.contains(&chunk_pos) {
+                    chunk_manager.spawned_chunks.insert(chunk_pos);
+                    spawn_chunk(&mut commands, &asset_server, chunk_pos);
+                }
+            }
         }
     }
 }
 
 fn despawn_out_of_range_chunks(
-    mut commands: Commands,
-    player_query: Query<&Transform, With<Player>>,
     chunks_query: Query<(Entity, &Transform)>,
+    player_query: Query<Entity, With<Player>>,
+    mut commands: Commands,
+    mut move_events: EventReader<Moved>,
     mut chunk_manager: ResMut<ChunkManager>,
 ) {
-    let Ok(transform) = player_query.get_single() else {
+    let Ok(player) = player_query.get_single() else {
         return;
     };
 
-    let player_pos = transform.translation.xy();
-    let player_chunk_pos = pos_to_chunk_pos(&player_pos);
-    let valid_chunks = get_chunk_positions_around(player_chunk_pos);
+    for move_event in move_events.read() {
+        if move_event.entity == player {
+            let player_chunk_pos = pos_to_chunk_pos(&move_event.position.xy());
+            let valid_chunks = get_chunk_positions_around(player_chunk_pos);
 
-    for (entity, chunk_transform) in chunks_query.iter() {
-        let chunk_pos = pos_to_chunk_pos(&chunk_transform.translation.xy());
-        if !valid_chunks.contains(&chunk_pos) {
-            chunk_manager.spawned_chunks.remove(&chunk_pos);
-            commands.entity(entity).despawn_recursive();
+            for (entity, chunk_transform) in chunks_query.iter() {
+                let chunk_pos = pos_to_chunk_pos(&chunk_transform.translation.xy());
+                if !valid_chunks.contains(&chunk_pos) {
+                    chunk_manager.spawned_chunks.remove(&chunk_pos);
+                    commands.entity(entity).despawn_recursive();
+                }
+            }
         }
     }
 }
