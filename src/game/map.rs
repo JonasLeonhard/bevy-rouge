@@ -231,11 +231,22 @@ pub(super) fn plugin(app: &mut App) {
             Update,
             (
                 spawn_chunks_around_player,
+                despawn_out_of_range_chunks,
                 update_cursor_position,
                 draw_path_to_hovered_tile,
                 highlight_hovered_tile,
             ),
         );
+}
+
+fn get_chunk_positions_around(center: IVec2) -> HashSet<IVec2> {
+    let mut chunks = HashSet::new();
+    for y in (center.y - 2)..(center.y + 2) {
+        for x in (center.x - 2)..(center.x + 2) {
+            chunks.insert(IVec2::new(x, y));
+        }
+    }
+    chunks
 }
 
 fn spawn_chunk(commands: &mut Commands, asset_server: &AssetServer, chunk_pos: IVec2) {
@@ -311,14 +322,35 @@ fn spawn_chunks_around_player(
 
     let player_pos = transform.translation.xy();
     let player_chunk_pos = pos_to_chunk_pos(&player_pos);
+    let chunks = get_chunk_positions_around(player_chunk_pos);
 
-    for y in (player_chunk_pos.y - 2)..(player_chunk_pos.y + 2) {
-        for x in (player_chunk_pos.x - 2)..(player_chunk_pos.x + 2) {
-            let chunk_pos = IVec2::new(x, y);
-            if !chunk_manager.spawned_chunks.contains(&chunk_pos) {
-                chunk_manager.spawned_chunks.insert(chunk_pos);
-                spawn_chunk(&mut commands, &asset_server, chunk_pos);
-            }
+    for chunk_pos in chunks {
+        if !chunk_manager.spawned_chunks.contains(&chunk_pos) {
+            chunk_manager.spawned_chunks.insert(chunk_pos);
+            spawn_chunk(&mut commands, &asset_server, chunk_pos);
+        }
+    }
+}
+
+fn despawn_out_of_range_chunks(
+    mut commands: Commands,
+    player_query: Query<&Transform, With<Player>>,
+    chunks_query: Query<(Entity, &Transform)>,
+    mut chunk_manager: ResMut<ChunkManager>,
+) {
+    let Ok(transform) = player_query.get_single() else {
+        return;
+    };
+
+    let player_pos = transform.translation.xy();
+    let player_chunk_pos = pos_to_chunk_pos(&player_pos);
+    let valid_chunks = get_chunk_positions_around(player_chunk_pos);
+
+    for (entity, chunk_transform) in chunks_query.iter() {
+        let chunk_pos = pos_to_chunk_pos(&chunk_transform.translation.xy());
+        if !valid_chunks.contains(&chunk_pos) {
+            chunk_manager.spawned_chunks.remove(&chunk_pos);
+            commands.entity(entity).despawn_recursive();
         }
     }
 }
