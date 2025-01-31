@@ -5,8 +5,6 @@ use bresenham::Bresenham;
 use pathfinding::prelude::astar;
 use rand::prelude::*;
 
-use super::camera::FollowedByCamera;
-
 #[derive(Component)]
 pub struct GridMovement {
     pub current_pos: GridPos,
@@ -364,7 +362,7 @@ fn despawn_out_of_range_chunks(
 }
 
 fn update_cursor_position(
-    camera_query: Query<(&GlobalTransform, &Camera)>,
+    camera_query: Query<(&GlobalTransform, &Camera), With<IsDefaultUiCamera>>,
     mut cursor_position: ResMut<HoveredTilePos>,
     mut cursor_moved_events: EventReader<CursorMoved>,
     chunk_query: Query<(

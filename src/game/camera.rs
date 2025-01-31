@@ -27,8 +27,8 @@ fn movement(
     mut commands: Commands,
     time: Res<Time>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut query: Query<(&mut Transform, &mut OrthographicProjection), With<Camera>>,
-    player_query: Query<Entity, (With<Player>, Without<Camera>)>,
+    mut query: Query<(&mut Transform, &mut OrthographicProjection), With<IsDefaultUiCamera>>,
+    player_query: Query<Entity, (With<Player>, Without<IsDefaultUiCamera>)>,
 ) {
     let Ok(player_entity) = player_query.get_single() else {
         return;
@@ -82,8 +82,15 @@ fn movement(
 
 fn follow_player(
     time: Res<Time>,
-    mut camera_query: Query<&mut Transform, With<Camera>>,
-    player_query: Query<&Transform, (With<Player>, With<FollowedByCamera>, Without<Camera>)>,
+    mut camera_query: Query<&mut Transform, With<IsDefaultUiCamera>>,
+    player_query: Query<
+        &Transform,
+        (
+            With<Player>,
+            With<FollowedByCamera>,
+            Without<IsDefaultUiCamera>,
+        ),
+    >,
 ) {
     let Ok(mut camera_transform) = camera_query.get_single_mut() else {
         return;
