@@ -7,7 +7,7 @@ use bevy_ecs_tilemap::prelude::*;
 
 use super::{
     camera::FollowedByCamera,
-    map::{GameGrid, GridMovement, GridPos},
+    map::{GameGrid, GridMovement, GridPos, TILE_SIZE},
 };
 
 #[derive(Component)]

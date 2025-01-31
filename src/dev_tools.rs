@@ -44,41 +44,10 @@ pub(super) fn plugin(app: &mut App) {
         Update,
         toggle_debug_ui.run_if(input_just_pressed(TOGGLE_KEY)),
     );
-
-    app.add_systems(
-        Update,
-        toggle_fog_of_war.run_if(input_just_pressed(TOGGLE_KEY)),
-    );
-
-    app.add_systems(
-        Update,
-        toggle_debug_fov.run_if(input_just_pressed(TOGGLE_KEY)),
-    );
 }
 
 const TOGGLE_KEY: KeyCode = KeyCode::F10;
 
 fn toggle_debug_ui(mut options: ResMut<UiDebugOptions>) {
     options.toggle();
-}
-
-fn toggle_fog_of_war(
-    mut fog_of_war: ResMut<FogOfWar>,
-    mut tile_query: Query<(&mut TileVisible, &mut TileColor)>,
-) {
-    fog_of_war.enabled = !fog_of_war.enabled;
-
-    if !fog_of_war.enabled {
-        // Make all tiles fully visible
-        for (mut tile_visible, mut tile_color) in tile_query.iter_mut() {
-            tile_visible.0 = true;
-            tile_color.0 = Color::WHITE;
-        }
-    }
-}
-
-fn toggle_debug_fov(mut query: Query<&mut FieldOfView>) {
-    for mut fov in query.iter_mut() {
-        fov.show_debug_grid = !fov.show_debug_grid;
-    }
 }

@@ -1,9 +1,11 @@
-use crate::components::Player;
+use crate::components::{Player, TurnTaker};
 use bevy::{prelude::*, utils::HashSet};
 use bevy_ecs_tilemap::prelude::*;
 use bresenham::Bresenham;
 use pathfinding::prelude::astar;
 use rand::prelude::*;
+
+use super::fov::FieldOfView;
 
 #[derive(Component)]
 pub struct GridMovement {
@@ -227,6 +229,14 @@ impl GameGrid {
             Some(hit_pos) => hit_pos == to,
         }
     }
+
+    pub fn chunk_pos_to_world_pos(chunk_pos: IVec2) -> Vec3 {
+        Vec3::new(
+            chunk_pos.x as f32 * CHUNK_SIZE.x as f32 * TILE_SIZE.x,
+            chunk_pos.y as f32 * CHUNK_SIZE.y as f32 * TILE_SIZE.y,
+            0.0,
+        )
+    }
 }
 
 pub(super) fn plugin(app: &mut App) {
@@ -260,7 +270,10 @@ fn spawn_chunk(commands: &mut Commands, asset_server: &AssetServer, chunk_pos: I
     let tilemap_entity = commands.spawn_empty().id();
     let mut tile_storage = TileStorage::empty(CHUNK_SIZE.into());
     const OBSTACLE_CHANCE: f32 = 0.2;
+    const DEVIL_CHANCE: f32 = 0.05;
     let mut rng = rand::thread_rng();
+
+    let chunk_world_pos = GameGrid::chunk_pos_to_world_pos(chunk_pos);
 
     // Spawn the elements of the tilemap.
     for x in 0..CHUNK_SIZE.x {
@@ -281,15 +294,20 @@ fn spawn_chunk(commands: &mut Commands, asset_server: &AssetServer, chunk_pos: I
                 .id();
             commands.entity(tilemap_entity).add_child(tile_entity);
             tile_storage.set(&tile_pos, tile_entity);
+
+            // Maybe spawn a devil on non-obstacle tiles
+            if !is_obstacle && rng.gen::<f32>() < DEVIL_CHANCE {
+                let tile_world_pos = Vec3::new(
+                    chunk_world_pos.x + x as f32 * TILE_SIZE.x,
+                    chunk_world_pos.y + y as f32 * TILE_SIZE.y,
+                    chunk_world_pos.z,
+                );
+                spawn_devil(commands, asset_server, tile_world_pos);
+            }
         }
     }
 
-    let transform = Transform::from_translation(Vec3::new(
-        chunk_pos.x as f32 * CHUNK_SIZE.x as f32 * TILE_SIZE.x,
-        chunk_pos.y as f32 * CHUNK_SIZE.y as f32 * TILE_SIZE.y,
-        0.0,
-    ));
-
+    let transform = Transform::from_translation(chunk_world_pos);
     let texture_atlas = asset_server.load("images/atlas.png");
     let mut entity = commands.entity(tilemap_entity);
 
@@ -308,6 +326,34 @@ fn spawn_chunk(commands: &mut Commands, asset_server: &AssetServer, chunk_pos: I
             ..Default::default()
         })
         .insert(Name::new("Chunk"));
+}
+
+fn spawn_devil(commands: &mut Commands, asset_server: &AssetServer, world_pos: Vec3) {
+    let image = asset_server.load("images/devil.png");
+    commands.spawn((
+        Name::new("Devil"),
+        Transform {
+            translation: world_pos,
+            ..default()
+        },
+        GridMovement {
+            current_pos: GridPos::from_world_pos(world_pos.xy()),
+            target_pos: None,
+        },
+        TurnTaker {
+            actions_per_turn: 1,
+            actions_remaining: 1,
+        },
+        Visibility::Hidden,
+        Sprite {
+            image,
+            custom_size: Some(Vec2 {
+                x: TILE_SIZE.x,
+                y: TILE_SIZE.y,
+            }),
+            ..default()
+        },
+    ));
 }
 
 fn pos_to_chunk_pos(pos: &Vec2) -> IVec2 {

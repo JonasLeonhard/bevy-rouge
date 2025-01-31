@@ -15,6 +15,10 @@ fn spawn_camera(mut commands: Commands) {
     commands.spawn((
         Name::new("Camera"),
         Camera2d,
+        OrthographicProjection {
+            scale: 0.75, // zoomed in
+            ..OrthographicProjection::default_2d()
+        },
         // Render all UI to this camera.
         // Not strictly necessary since we only use one camera,
         // but if we don't use this component, our UI will disappear as soon

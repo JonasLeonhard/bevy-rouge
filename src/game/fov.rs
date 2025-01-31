@@ -1,7 +1,12 @@
-use bevy::prelude::*;
+use bevy::{dev_tools::ui_debug_overlay::UiDebugOptions, prelude::*};
 use bevy_ecs_tilemap::prelude::*;
 
-use super::map::{GameGrid, GridPos, TILE_SIZE};
+use crate::components::TurnTaker;
+
+use super::{
+    map::{GameGrid, GridPos, TILE_SIZE},
+    player::Player,
+};
 use doryen_fov::{FovAlgorithm, FovRestrictive, MapData};
 
 // Component for entities that have field of view
@@ -11,7 +16,6 @@ pub struct FieldOfView {
     fov: FovRestrictive,
     fov_map: MapData,
     pub visible_positions: Vec<GridPos>,
-    pub show_debug_grid: bool,
 }
 
 impl FieldOfView {
@@ -22,7 +26,6 @@ impl FieldOfView {
             fov: FovRestrictive::new(),
             fov_map: MapData::new(grid_size, grid_size),
             visible_positions: Vec::new(),
-            show_debug_grid: false,
         }
     }
 
@@ -91,7 +94,14 @@ impl FieldOfView {
 }
 
 pub fn plugin(app: &mut App) {
-    app.add_systems(PostUpdate, (update_fov, show_debug_grid));
+    app.add_systems(
+        PostUpdate,
+        (
+            update_fov,
+            visibility_of_entities_in_player_fov,
+            show_debug_grid,
+        ),
+    );
 }
 
 // System to update FOV for all entities that have one
@@ -112,13 +122,40 @@ fn update_fov(
     }
 }
 
-// Called in dev_tools
-fn show_debug_grid(mut gizmos: Gizmos, query: Query<(&Transform, &FieldOfView)>) {
-    for (transform, fov) in query.iter() {
-        if !fov.show_debug_grid {
-            continue;
-        }
+fn visibility_of_entities_in_player_fov(
+    player_query: Query<&FieldOfView, With<Player>>,
+    mut npc_query: Query<(&Transform, &mut Visibility), (With<TurnTaker>, Without<Player>)>,
+    debug_options: Res<UiDebugOptions>,
+) {
+    let Ok(player_fov) = player_query.get_single() else {
+        return;
+    };
 
+    for (npc_pos, mut npc_visible) in npc_query.iter_mut() {
+        if !debug_options.enabled {
+            let npc_grid_pos = GridPos::from_world_pos(npc_pos.translation.xy());
+            if player_fov.visible_positions.contains(&npc_grid_pos) {
+                *npc_visible = Visibility::Visible;
+            } else {
+                *npc_visible = Visibility::Hidden;
+            }
+        } else {
+            *npc_visible = Visibility::Visible;
+        }
+    }
+}
+
+// Called in dev_tools
+fn show_debug_grid(
+    mut gizmos: Gizmos,
+    query: Query<(&Transform, &FieldOfView), With<Player>>,
+    debug_options: Res<UiDebugOptions>,
+) {
+    if !debug_options.enabled {
+        return;
+    }
+
+    for (transform, fov) in query.iter() {
         let center_pos = GridPos::from_world_pos(transform.translation.xy());
         let all_positions = fov.get_positions_in_view_range(&center_pos);
 
