@@ -1,27 +1,21 @@
 use crate::{
     components::{AnimationConfig, FieldOfView, TurnTaker},
-    resources::HoveredTilePos,
     states::TurnState,
 };
 use bevy::prelude::*;
+use bevy_ecs_tilemap::prelude::*;
+
+use super::{
+    camera::FollowedByCamera,
+    map::{GameGrid, GridMovement, GridPos},
+};
 
 #[derive(Component)]
 pub struct Player;
 
-/// position in viewport_to_world_2d coordinates the player wants to move to.
-/// This gets set when left-clicked
-#[derive(Resource)]
-pub struct PlayerTargetPos(pub Option<Vec2>);
-
 pub(super) fn plugin(app: &mut App) {
-    app.insert_resource(PlayerTargetPos(None))
-        .add_systems(Startup, spawn)
-        .add_systems(
-            Update,
-            (on_click_set_target_pos, move_player)
-                .chain()
-                .run_if(in_state(TurnState::Player)),
-        );
+    app.add_systems(Startup, spawn)
+        .add_systems(Update, (move_player).run_if(in_state(TurnState::Player)));
 }
 
 fn spawn(
@@ -48,6 +42,10 @@ fn spawn(
             },
             ..default()
         },
+        GridMovement {
+            current_pos: GridPos { x: 0, y: 0 },
+            target_pos: None,
+        },
         TurnTaker {
             actions_per_turn: 200, // -- movement takes an action!
             actions_remaining: 200,
@@ -66,37 +64,50 @@ fn spawn(
     ));
 }
 
-fn on_click_set_target_pos(
-    key: Res<ButtonInput<MouseButton>>,
-    hovered_tile_pos: Res<HoveredTilePos>,
-    mut target_pos: ResMut<PlayerTargetPos>,
-) {
-    if key.just_pressed(MouseButton::Left) {
-        if let Some(tile_pos) = hovered_tile_pos.0 {
-            target_pos.0 = Some(tile_pos);
-        }
-    }
-}
-
 fn move_player(
-    mut player_query: Query<(&mut Transform, &mut TurnTaker), With<Player>>,
-    mut target_pos: ResMut<PlayerTargetPos>,
+    mut player_query: Query<(Entity, &mut TurnTaker, &mut GridMovement), With<Player>>,
+    chunks_query: Query<(
+        &TileStorage,
+        &TilemapSize,
+        &TilemapGridSize,
+        &TilemapType,
+        &Transform,
+    )>,
+    tile_query: Query<&TileTextureIndex>,
+    mut commands: Commands,
+    key: Res<ButtonInput<KeyCode>>,
 ) {
-    if let Some(target) = target_pos.0 {
-        let Ok((mut transform, mut turn_taker)) = player_query.get_single_mut() else {
-            return;
+    let Ok((player_entity, mut player_turn_taker, mut player_grid_movement)) =
+        player_query.get_single_mut()
+    else {
+        return;
+    };
+
+    if player_turn_taker.actions_remaining <= 0 || player_grid_movement.target_pos.is_some() {
+        return;
+    }
+    let mut direction = None;
+
+    if key.just_pressed(KeyCode::KeyW) {
+        direction = Some((0, 1));
+    } else if key.just_pressed(KeyCode::KeyS) {
+        direction = Some((0, -1));
+    } else if key.just_pressed(KeyCode::KeyA) {
+        direction = Some((-1, 0));
+    } else if key.just_pressed(KeyCode::KeyD) {
+        direction = Some((1, 0));
+    }
+
+    if let Some((dx, dy)) = direction {
+        let new_pos = GridPos {
+            x: player_grid_movement.current_pos.x + dx,
+            y: player_grid_movement.current_pos.y + dy,
         };
 
-        if turn_taker.actions_remaining > 0 {
-            // Move the player to the target position
-            transform.translation.x = target.x;
-            transform.translation.y = target.y;
-
-            // Moving Consumes an action
-            turn_taker.actions_remaining -= 1;
-
-            // TODO: Only Clear the target position if the player reached the position
-            target_pos.0 = None;
+        if GameGrid::is_walkable(&new_pos, &chunks_query, &tile_query) {
+            player_grid_movement.target_pos = Some(new_pos);
+            player_turn_taker.actions_remaining -= 1;
+            commands.entity(player_entity).insert(FollowedByCamera);
         }
     }
 }

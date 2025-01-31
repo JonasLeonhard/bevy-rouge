@@ -5,6 +5,14 @@ use bresenham::Bresenham;
 use pathfinding::prelude::astar;
 use rand::prelude::*;
 
+use super::camera::FollowedByCamera;
+
+#[derive(Component)]
+pub struct GridMovement {
+    pub current_pos: GridPos,
+    pub target_pos: Option<GridPos>,
+}
+
 /// the actual mouse position in viewport_to_world_2d coordinates
 /// If offscreen - this is None
 /// The Position always snaps to the actual tile center position
@@ -235,6 +243,7 @@ pub(super) fn plugin(app: &mut App) {
                 update_cursor_position,
                 draw_path_to_hovered_tile,
                 highlight_hovered_tile,
+                animate_grid_movement,
             ),
         );
 }
@@ -463,6 +472,29 @@ pub fn draw_path_to_hovered_tile(
                 points[1].xy(),
                 Color::srgba(22.0, 101.0, 52.0, 1.0),
             );
+        }
+    }
+}
+
+// interpolate from<->to GridMovement positions
+fn animate_grid_movement(mut query: Query<(&mut Transform, &mut GridMovement)>, time: Res<Time>) {
+    for (mut transform, mut movement) in &mut query {
+        let Some(target) = movement.target_pos else {
+            continue;
+        };
+        let interpolation_speed = 20.;
+        let target_world_pos = target.to_world_pos();
+        let current_pos = transform.translation.xy();
+        let factor = (interpolation_speed * time.delta_secs()).min(1.0);
+
+        let new_pos = current_pos.lerp(target_world_pos, factor);
+        transform.translation = new_pos.extend(transform.translation.z);
+
+        if current_pos.distance(target_world_pos) <= 1.0 {
+            transform.translation.x = target_world_pos.x;
+            transform.translation.y = target_world_pos.y;
+            movement.current_pos = target;
+            movement.target_pos = None;
         }
     }
 }
