@@ -1,11 +1,10 @@
-use crate::components::{Player, TurnTaker};
+use crate::components::Player;
+use crate::game::devil::spawn_devil;
 use bevy::{prelude::*, utils::HashSet};
 use bevy_ecs_tilemap::prelude::*;
 use bresenham::Bresenham;
 use pathfinding::prelude::astar;
 use rand::prelude::*;
-
-use super::fov::FieldOfView;
 
 #[derive(Component)]
 pub struct GridMovement {
@@ -326,34 +325,6 @@ fn spawn_chunk(commands: &mut Commands, asset_server: &AssetServer, chunk_pos: I
             ..Default::default()
         })
         .insert(Name::new("Chunk"));
-}
-
-fn spawn_devil(commands: &mut Commands, asset_server: &AssetServer, world_pos: Vec3) {
-    let image = asset_server.load("images/devil.png");
-    commands.spawn((
-        Name::new("Devil"),
-        Transform {
-            translation: world_pos,
-            ..default()
-        },
-        GridMovement {
-            current_pos: GridPos::from_world_pos(world_pos.xy()),
-            target_pos: None,
-        },
-        TurnTaker {
-            actions_per_turn: 1,
-            actions_remaining: 1,
-        },
-        Visibility::Hidden,
-        Sprite {
-            image,
-            custom_size: Some(Vec2 {
-                x: TILE_SIZE.x,
-                y: TILE_SIZE.y,
-            }),
-            ..default()
-        },
-    ));
 }
 
 fn pos_to_chunk_pos(pos: &Vec2) -> IVec2 {

@@ -1,13 +1,11 @@
-use crate::{
-    components::{AnimationConfig, FieldOfView, TurnTaker},
-    states::TurnState,
-};
+use crate::components::{AnimationConfig, FieldOfView, TurnTaker};
+use crate::states::TurnState;
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 
 use super::{
     camera::FollowedByCamera,
-    map::{GameGrid, GridMovement, GridPos, TILE_SIZE},
+    map::{GameGrid, GridMovement, GridPos},
 };
 
 #[derive(Component)]
@@ -15,7 +13,7 @@ pub struct Player;
 
 pub(super) fn plugin(app: &mut App) {
     app.add_systems(Startup, spawn)
-        .add_systems(Update, (move_player).run_if(in_state(TurnState::Player)));
+        .add_systems(Update, take_turn.run_if(in_state(TurnState::Player)));
 }
 
 fn spawn(
@@ -47,8 +45,8 @@ fn spawn(
             target_pos: None,
         },
         TurnTaker {
-            actions_per_turn: 200, // -- movement takes an action!
-            actions_remaining: 200,
+            actions_per_turn: 2, // -- movement takes an action!
+            actions_remaining: 2,
         },
         FieldOfView::new(10),
         Sprite {
@@ -64,7 +62,7 @@ fn spawn(
     ));
 }
 
-fn move_player(
+fn take_turn(
     mut player_query: Query<(Entity, &mut TurnTaker, &mut GridMovement), With<Player>>,
     chunks_query: Query<(
         &TileStorage,
@@ -83,8 +81,8 @@ fn move_player(
         return;
     };
 
-    if player_turn_taker.actions_remaining <= 0 || player_grid_movement.target_pos.is_some() {
-        return;
+    if player_grid_movement.target_pos.is_some() {
+        return; // we are still animating our movement
     }
     let mut direction = None;
 
