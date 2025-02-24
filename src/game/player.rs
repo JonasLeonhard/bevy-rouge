@@ -63,7 +63,7 @@ fn spawn(
 }
 
 fn take_turn(
-    mut player_query: Query<(Entity, &mut TurnTaker, &mut GridMovement), With<Player>>,
+    mut movement_query: Query<(Entity, &mut TurnTaker, &mut GridMovement, Option<&Player>)>,
     chunks_query: Query<(
         &TileStorage,
         &TilemapSize,
@@ -75,15 +75,20 @@ fn take_turn(
     mut commands: Commands,
     key: Res<ButtonInput<KeyCode>>,
 ) {
-    let Ok((player_entity, mut player_turn_taker, mut player_grid_movement)) =
-        player_query.get_single_mut()
-    else {
-        return;
-    };
+    let mut occupied_positions: Vec<_> = movement_query
+        .iter()
+        .map(|(entity, _, grid_movement, _)| {
+            (entity, grid_movement.current_pos, grid_movement.target_pos)
+        })
+        .collect();
 
-    if player_grid_movement.target_pos.is_some() {
-        return; // we are still animating our movement
-    }
+    let players_to_move: Vec<_> = movement_query
+        .iter_mut()
+        .filter(|(_, _, grid_movement, player)| {
+            player.is_some() && grid_movement.target_pos.is_none()
+        })
+        .collect();
+
     let mut direction = None;
 
     if key.just_pressed(KeyCode::KeyW) {
@@ -96,16 +101,40 @@ fn take_turn(
         direction = Some((1, 0));
     }
 
-    if let Some((dx, dy)) = direction {
-        let new_pos = GridPos {
-            x: player_grid_movement.current_pos.x + dx,
-            y: player_grid_movement.current_pos.y + dy,
-        };
+    players_to_move
+        .into_iter()
+        .for_each(|(entity, mut turn_taker, mut grid_movement, _)| {
+            if let Some((dx, dy)) = direction {
+                let new_pos = GridPos {
+                    x: grid_movement.current_pos.x + dx,
+                    y: grid_movement.current_pos.y + dy,
+                };
 
-        if GameGrid::is_walkable(&new_pos, &chunks_query, &tile_query) {
-            player_grid_movement.target_pos = Some(new_pos);
-            player_turn_taker.actions_remaining -= 1;
-            commands.entity(player_entity).insert(FollowedByCamera);
-        }
-    }
+                let is_occupied =
+                    occupied_positions
+                        .iter()
+                        .any(|(other_entity, other_current, other_target)| {
+                            if *other_entity == entity {
+                                return false;
+                            }
+                            *other_current == new_pos
+                                || other_target.is_some_and(|pos| pos == new_pos)
+                        });
+
+                if !is_occupied && GameGrid::is_walkable(&new_pos, &chunks_query, &tile_query) {
+                    // update our entities old occupied_position so other entities can't move to
+                    // its new position
+                    if let Some((_, _, target_pos)) = occupied_positions
+                        .iter_mut()
+                        .find(|(other_entity, _, _)| *other_entity == entity)
+                    {
+                        *target_pos = Some(new_pos);
+                    }
+
+                    grid_movement.target_pos = Some(new_pos);
+                    turn_taker.actions_remaining -= 1;
+                    commands.entity(entity).insert(FollowedByCamera);
+                }
+            }
+        });
 }
