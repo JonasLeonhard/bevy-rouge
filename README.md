@@ -1,4 +1,4 @@
-# Bevy Game
+# Rougelike Prototype
 <img width="1275" alt="prototype_1" src="https://github.com/user-attachments/assets/cd46d689-9926-46c9-8df5-693c9c911132" />
 
 Based on: [Bevy Template](https://github.com/TheBevyFlock/bevy_new_2d)
