@@ -270,7 +270,7 @@ fn spawn_chunk(commands: &mut Commands, asset_server: &AssetServer, chunk_pos: I
     let mut tile_storage = TileStorage::empty(CHUNK_SIZE.into());
     const OBSTACLE_CHANCE: f32 = 0.2;
     const DEVIL_CHANCE: f32 = 0.05;
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     let chunk_world_pos = GameGrid::chunk_pos_to_world_pos(chunk_pos);
 
@@ -278,7 +278,7 @@ fn spawn_chunk(commands: &mut Commands, asset_server: &AssetServer, chunk_pos: I
     for x in 0..CHUNK_SIZE.x {
         for y in 0..CHUNK_SIZE.y {
             let tile_pos = TilePos { x, y };
-            let is_obstacle = rng.gen::<f32>() < OBSTACLE_CHANCE;
+            let is_obstacle = rng.random::<f32>() < OBSTACLE_CHANCE;
             let texture_index = if is_obstacle { 52 } else { 5 };
 
             let tile_entity = commands
@@ -295,7 +295,7 @@ fn spawn_chunk(commands: &mut Commands, asset_server: &AssetServer, chunk_pos: I
             tile_storage.set(&tile_pos, tile_entity);
 
             // Maybe spawn a devil on non-obstacle tiles
-            if !is_obstacle && rng.gen::<f32>() < DEVIL_CHANCE {
+            if !is_obstacle && rng.random::<f32>() < DEVIL_CHANCE {
                 let tile_world_pos = Vec3::new(
                     chunk_world_pos.x + x as f32 * TILE_SIZE.x,
                     chunk_world_pos.y + y as f32 * TILE_SIZE.y,

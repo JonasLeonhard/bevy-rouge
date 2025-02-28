@@ -73,7 +73,7 @@ fn take_turn(
         .into_iter()
         .for_each(|(entity, mut turn_taker, mut grid_movement, _)| {
             let directions = [(1, 0), (-1, 0), (0, 1), (0, -1)];
-            let mut rng = rand::thread_rng();
+            let mut rng = rand::rng();
             let mut shuffled_directions = directions.to_vec();
             shuffled_directions.shuffle(&mut rng);
 
